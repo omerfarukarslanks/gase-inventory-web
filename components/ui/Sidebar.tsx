@@ -102,8 +102,12 @@ export default function Sidebar({
     }
   };
 
-  const isActiveItem = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const isActiveItem = (href: string) => {
+    if (href === "/dashboard" && (pathname === "/dashboard-1" || pathname.startsWith("/dashboard-1/"))) {
+      return true;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   return (
     <aside
