@@ -12,9 +12,12 @@ import {
   type ProductCategoriesListMeta,
 } from "@/lib/product-categories";
 import { useDebounceStr } from "@/hooks/useDebounce";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useTablePaginationState } from "@/hooks/useTablePaginationState";
 import { useLang } from "@/context/LangContext";
+import { nullishToUndefined, trimText, trimToNull, trimToUndefined } from "@/lib/payload";
 import ProductCategoryFilters from "@/components/product-categories/ProductCategoryFilters";
 import ProductCategoryTable from "@/components/product-categories/ProductCategoryTable";
 import ProductCategoryDrawer from "@/components/product-categories/ProductCategoryDrawer";
@@ -23,6 +26,7 @@ import { EMPTY_FORM, slugifyText, type CategoryForm } from "@/components/product
 export default function ProductCategoriesPage() {
   const { t } = useLang();
   const { can } = usePermissions();
+  const canReadPage = usePermissionGuard("PRODUCT_CATEGORY_READ");
   const canCreate = can("PRODUCT_CATEGORY_CREATE");
   const canUpdate = can("PRODUCT_CATEGORY_UPDATE");
   const isMobile = !useMediaQuery();
@@ -30,8 +34,6 @@ export default function ProductCategoriesPage() {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [allCategories, setAllCategories] = useState<ProductCategory[]>([]);
   const [meta, setMeta] = useState<ProductCategoriesListMeta | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<boolean | "all">("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -51,14 +53,19 @@ export default function ProductCategoriesPage() {
   const [slugTouched, setSlugTouched] = useState(false);
 
   const debouncedSearch = useDebounceStr(searchTerm, 500);
+  const pagination = useTablePaginationState({
+    totalPages: meta?.totalPages ?? 1,
+    loading,
+  });
 
   const fetchCategories = useCallback(async () => {
+    if (!canReadPage) return;
     setLoading(true);
     setError("");
     try {
       const res = await getProductCategoriesPaginated({
-        page: currentPage,
-        limit: pageSize,
+        page: pagination.page,
+        limit: pagination.pageSize,
         search: debouncedSearch || undefined,
         isActive: statusFilter,
       });
@@ -71,41 +78,37 @@ export default function ProductCategoriesPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, statusFilter, t]);
+  }, [canReadPage, debouncedSearch, pagination.page, pagination.pageSize, statusFilter, t]);
 
   const fetchAllCategories = useCallback(async () => {
+    if (!canReadPage) return;
     try {
       const res = await getAllProductCategories({ isActive: "all" });
       setAllCategories(res);
     } catch {
       setAllCategories([]);
     }
-  }, []);
+  }, [canReadPage]);
 
   useEffect(() => {
     if (debouncedSearch !== "") {
-      setCurrentPage(1);
+      pagination.resetPage();
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, pagination.resetPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [statusFilter]);
+    pagination.resetPage();
+  }, [pagination.resetPage, statusFilter]);
 
   useEffect(() => {
+    if (!canReadPage) return;
     void fetchCategories();
-  }, [fetchCategories]);
+  }, [canReadPage, fetchCategories]);
 
   useEffect(() => {
+    if (!canReadPage) return;
     void fetchAllCategories();
-  }, [fetchAllCategories]);
-
-  const totalPages = meta?.totalPages ?? 1;
-
-  const onChangePageSize = (nextPageSize: number) => {
-    setPageSize(nextPageSize);
-    setCurrentPage(1);
-  };
+  }, [canReadPage, fetchAllCategories]);
 
   const parentNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -195,8 +198,8 @@ export default function ProductCategoriesPage() {
     setNameError("");
     setSlugError("");
 
-    const trimmedName = form.name.trim();
-    const trimmedSlug = form.slug.trim();
+    const trimmedName = trimText(form.name);
+    const trimmedSlug = trimText(form.slug);
 
     if (!trimmedName) {
       setNameError("Kategori adi zorunludur.");
@@ -225,15 +228,15 @@ export default function ProductCategoriesPage() {
         await updateProductCategory(editingCategoryId, {
           name: trimmedName,
           slug: trimmedSlug,
-          description: form.description.trim() || undefined,
-          parentId: form.parentId || null,
+          description: trimToUndefined(form.description),
+          parentId: trimToNull(form.parentId),
         });
       } else {
         await createProductCategory({
           name: trimmedName,
           slug: trimmedSlug,
-          description: form.description.trim() || undefined,
-          parentId: form.parentId || null,
+          description: trimToUndefined(form.description),
+          parentId: trimToNull(form.parentId),
           isActive: true,
         });
       }
@@ -258,7 +261,7 @@ export default function ProductCategoriesPage() {
       await updateProductCategory(category.id, {
         name: category.name,
         slug: category.slug ?? slugifyText(category.name),
-        description: category.description ?? undefined,
+        description: nullishToUndefined(category.description),
         parentId: category.parentId ?? null,
         isActive: next,
       });
@@ -269,6 +272,8 @@ export default function ProductCategoriesPage() {
       setTogglingCategoryIds((prev) => prev.filter((id) => id !== category.id));
     }
   };
+
+  if (!canReadPage) return null;
 
   return (
     <div className="space-y-4">
@@ -296,14 +301,14 @@ export default function ProductCategoriesPage() {
         footer={
           meta ? (
             <TablePagination
-              page={currentPage}
-              totalPages={totalPages}
+              page={pagination.page}
+              totalPages={pagination.totalPages}
               total={meta.total}
-              pageSize={pageSize}
+              pageSize={pagination.pageSize}
               pageSizeId="product-categories-page-size"
               loading={loading}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={onChangePageSize}
+              onPageChange={pagination.onPageChange}
+              onPageSizeChange={pagination.onPageSizeChange}
             />
           ) : null
         }

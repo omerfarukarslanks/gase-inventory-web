@@ -1,25 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import type { PermissionName } from "@/lib/authz";
+import { useSession } from "@/hooks/useSession";
 
-/**
- * Reads permissions from the session user stored in localStorage.
- * Returns helper functions to check permissions reactively.
- */
 export function usePermissions() {
-  const [permissions, setPermissions] = useState<string[]>([]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("user");
-      if (!raw) return;
-      const user = JSON.parse(raw) as { permissions?: string[] };
-      setPermissions(user.permissions ?? []);
-    } catch {
-      setPermissions([]);
-    }
-  }, []);
+  const { permissions, isHydrated } = useSession();
 
   const can = (permission: PermissionName): boolean =>
     permissions.includes(permission);
@@ -27,5 +12,5 @@ export function usePermissions() {
   const canAny = (perms: PermissionName[]): boolean =>
     perms.some((p) => permissions.includes(p));
 
-  return { can, canAny, permissions };
+  return { can, canAny, permissions, isHydrated };
 }

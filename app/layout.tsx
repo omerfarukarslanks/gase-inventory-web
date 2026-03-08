@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import ThemeProvider from "@/components/theme/ThemeProvider";
 import { LangProvider } from "@/context/LangContext";
+import { SessionProvider } from "@/context/SessionContext";
 
 const dm = DM_Sans({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"] });
 
@@ -60,7 +61,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <ThemeProvider>
-          <LangProvider>{children}</LangProvider>
+          <SessionProvider>
+            <LangProvider>{children}</LangProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

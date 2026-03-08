@@ -14,9 +14,12 @@ import {
   type CustomerGender,
 } from "@/lib/customers";
 import { useDebounceStr } from "@/hooks/useDebounce";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useTablePaginationState } from "@/hooks/useTablePaginationState";
 import { useLang } from "@/context/LangContext";
+import { nullishToUndefined, trimText, trimToUndefined } from "@/lib/payload";
 import CustomersFilters from "@/components/customers/CustomersFilters";
 import CustomersTable from "@/components/customers/CustomersTable";
 import CustomerDrawer from "@/components/customers/CustomerDrawer";
@@ -26,14 +29,13 @@ import { EMPTY_FORM, type CustomerForm } from "@/components/customers/types";
 export default function CustomersPage() {
   const { t } = useLang();
   const { can } = usePermissions();
+  const canReadPage = usePermissionGuard("CUSTOMER_READ");
   const canCreate = can("CUSTOMER_CREATE");
   const canUpdate = can("CUSTOMER_UPDATE");
   const isMobile = !useMediaQuery();
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [meta, setMeta] = useState<CustomersListMeta | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<boolean | "all">("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -58,15 +60,20 @@ export default function CustomersPage() {
   const [customerBalanceError, setCustomerBalanceError] = useState("");
 
   const debouncedSearch = useDebounceStr(searchTerm, 500);
+  const pagination = useTablePaginationState({
+    totalPages: meta?.totalPages ?? 1,
+    loading,
+  });
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const fetchCustomers = useCallback(async () => {
+    if (!canReadPage) return;
     setLoading(true);
     setError("");
     try {
       const res = await getCustomers({
-        page: currentPage,
-        limit: pageSize,
+        page: pagination.page,
+        limit: pagination.pageSize,
         search: debouncedSearch || undefined,
         isActive: statusFilter,
       });
@@ -79,28 +86,22 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, statusFilter, t]);
+  }, [canReadPage, debouncedSearch, pagination.page, pagination.pageSize, statusFilter, t]);
 
   useEffect(() => {
     if (debouncedSearch !== "") {
-      setCurrentPage(1);
+      pagination.resetPage();
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, pagination.resetPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [statusFilter]);
+    pagination.resetPage();
+  }, [pagination.resetPage, statusFilter]);
 
   useEffect(() => {
+    if (!canReadPage) return;
     fetchCustomers();
-  }, [fetchCustomers]);
-
-  const totalPages = meta?.totalPages ?? 1;
-
-  const onChangePageSize = (nextPageSize: number) => {
-    setPageSize(nextPageSize);
-    setCurrentPage(1);
-  };
+  }, [canReadPage, fetchCustomers]);
 
   const onOpenDrawer = () => {
     setFormError("");
@@ -164,18 +165,21 @@ export default function CustomersPage() {
     setNameError("");
     setSurnameError("");
     setEmailError("");
+    const trimmedName = trimText(form.name);
+    const trimmedSurname = trimText(form.surname);
+    const trimmedEmail = trimText(form.email);
 
-    if (!form.name.trim()) {
+    if (!trimmedName) {
       setNameError("Isim alani zorunludur.");
       return;
     }
 
-    if (!form.surname.trim()) {
+    if (!trimmedSurname) {
       setSurnameError("Soyisim alani zorunludur.");
       return;
     }
 
-    if (form.email.trim() && !emailPattern.test(form.email.trim())) {
+    if (trimmedEmail && !emailPattern.test(trimmedEmail)) {
       setEmailError("Gecerli bir e-posta girin.");
       return;
     }
@@ -184,28 +188,28 @@ export default function CustomersPage() {
     try {
       if (editingCustomerId) {
         await updateCustomer(editingCustomerId, {
-          name: form.name.trim(),
-          surname: form.surname.trim(),
-          address: form.address.trim() || undefined,
-          country: form.country.trim() || undefined,
-          city: form.city.trim() || undefined,
-          district: form.district.trim() || undefined,
-          phoneNumber: form.phoneNumber.trim() || undefined,
-          email: form.email.trim() || undefined,
+          name: trimmedName,
+          surname: trimmedSurname,
+          address: trimToUndefined(form.address),
+          country: trimToUndefined(form.country),
+          city: trimToUndefined(form.city),
+          district: trimToUndefined(form.district),
+          phoneNumber: trimToUndefined(form.phoneNumber),
+          email: trimmedEmail || undefined,
           gender: (form.gender || undefined) as CustomerGender | undefined,
           birthDate: form.birthDate || undefined,
           isActive: editingCustomerIsActive,
         });
       } else {
         await createCustomer({
-          name: form.name.trim(),
-          surname: form.surname.trim(),
-          address: form.address.trim() || undefined,
-          country: form.country.trim() || undefined,
-          city: form.city.trim() || undefined,
-          district: form.district.trim() || undefined,
-          phoneNumber: form.phoneNumber.trim() || undefined,
-          email: form.email.trim() || undefined,
+          name: trimmedName,
+          surname: trimmedSurname,
+          address: trimToUndefined(form.address),
+          country: trimToUndefined(form.country),
+          city: trimToUndefined(form.city),
+          district: trimToUndefined(form.district),
+          phoneNumber: trimToUndefined(form.phoneNumber),
+          email: trimmedEmail || undefined,
           gender: (form.gender || undefined) as CustomerGender | undefined,
           birthDate: form.birthDate || undefined,
         });
@@ -232,13 +236,13 @@ export default function CustomersPage() {
       await updateCustomer(customer.id, {
         name: customer.name,
         surname: customer.surname,
-        address: customer.address ?? undefined,
-        country: customer.country ?? undefined,
-        city: customer.city ?? undefined,
-        district: customer.district ?? undefined,
-        phoneNumber: customer.phoneNumber ?? undefined,
-        email: customer.email ?? undefined,
-        gender: customer.gender ?? undefined,
+        address: nullishToUndefined(customer.address),
+        country: nullishToUndefined(customer.country),
+        city: nullishToUndefined(customer.city),
+        district: nullishToUndefined(customer.district),
+        phoneNumber: nullishToUndefined(customer.phoneNumber),
+        email: nullishToUndefined(customer.email),
+        gender: nullishToUndefined(customer.gender),
         birthDate: customer.birthDate ? String(customer.birthDate).slice(0, 10) : undefined,
         isActive: next,
       });
@@ -279,6 +283,8 @@ export default function CustomersPage() {
     setBalanceDrawerOpen(false);
   };
 
+  if (!canReadPage) return null;
+
   return (
     <div className="space-y-4">
       <CustomersFilters
@@ -305,14 +311,14 @@ export default function CustomersPage() {
         footer={
           meta ? (
             <TablePagination
-              page={currentPage}
-              totalPages={totalPages}
+              page={pagination.page}
+              totalPages={pagination.totalPages}
               total={meta.total}
-              pageSize={pageSize}
+              pageSize={pagination.pageSize}
               pageSizeId="customers-page-size"
               loading={loading}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={onChangePageSize}
+              onPageChange={pagination.onPageChange}
+              onPageSizeChange={pagination.onPageSizeChange}
             />
           ) : null
         }

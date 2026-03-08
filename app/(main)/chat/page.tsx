@@ -1,8 +1,13 @@
 "use client";
 
 import ChatPanel from "@/components/chat/ChatPanel";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 
 export default function ChatPage() {
+  const canReadPage = usePermissionGuard("AI_CHAT");
+
+  if (!canReadPage) return null;
+
   return (
     <div className="space-y-4">
       <div>

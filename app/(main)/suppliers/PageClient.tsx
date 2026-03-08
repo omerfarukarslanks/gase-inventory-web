@@ -7,9 +7,12 @@ import SuppliersTable from "@/components/suppliers/SuppliersTable";
 import { EMPTY_FORM, type SupplierForm } from "@/components/suppliers/types";
 import TablePagination from "@/components/ui/TablePagination";
 import { useDebounceStr } from "@/hooks/useDebounce";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useTablePaginationState } from "@/hooks/useTablePaginationState";
 import { useLang } from "@/context/LangContext";
+import { nullishToUndefined, trimText, trimToUndefined } from "@/lib/payload";
 import {
   createSupplier,
   getSupplierById,
@@ -22,12 +25,11 @@ import {
 export default function SuppliersPage() {
   const { t } = useLang();
   const { can } = usePermissions();
+  const canReadPage = usePermissionGuard("SUPPLIER_READ");
   const isMobile = !useMediaQuery();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [meta, setMeta] = useState<SuppliersListMeta | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<boolean | "all">("all");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -45,18 +47,23 @@ export default function SuppliersPage() {
   const [form, setForm] = useState<SupplierForm>(EMPTY_FORM);
 
   const debouncedSearch = useDebounceStr(searchTerm, 500);
+  const pagination = useTablePaginationState({
+    totalPages: meta?.totalPages ?? 1,
+    loading,
+  });
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const canCreate = can("SUPPLIER_CREATE");
   const canUpdate = can("SUPPLIER_UPDATE");
 
   const fetchSuppliers = useCallback(async () => {
+    if (!canReadPage) return;
     setLoading(true);
     setError("");
 
     try {
       const res = await getSuppliers({
-        page: currentPage,
-        limit: pageSize,
+        page: pagination.page,
+        limit: pagination.pageSize,
         search: debouncedSearch || undefined,
         isActive: statusFilter,
       });
@@ -69,28 +76,22 @@ export default function SuppliersPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch, pageSize, statusFilter, t]);
+  }, [canReadPage, debouncedSearch, pagination.page, pagination.pageSize, statusFilter, t]);
 
   useEffect(() => {
     if (debouncedSearch !== "") {
-      setCurrentPage(1);
+      pagination.resetPage();
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, pagination.resetPage]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [statusFilter]);
+    pagination.resetPage();
+  }, [pagination.resetPage, statusFilter]);
 
   useEffect(() => {
+    if (!canReadPage) return;
     void fetchSuppliers();
-  }, [fetchSuppliers]);
-
-  const totalPages = meta?.totalPages ?? 1;
-
-  const onChangePageSize = (nextPageSize: number) => {
-    setPageSize(nextPageSize);
-    setCurrentPage(1);
-  };
+  }, [canReadPage, fetchSuppliers]);
 
   const onOpenDrawer = () => {
     setFormError("");
@@ -150,18 +151,20 @@ export default function SuppliersPage() {
     setFormError("");
     setNameError("");
     setEmailError("");
+    const trimmedName = trimText(form.name);
+    const trimmedEmail = trimText(form.email);
 
-    if (!form.name.trim()) {
+    if (!trimmedName) {
       setNameError("Isim alani zorunludur.");
       return;
     }
 
-    if (form.name.trim().length < 2) {
+    if (trimmedName.length < 2) {
       setNameError("Isim en az 2 karakter olmalidir.");
       return;
     }
 
-    if (form.email.trim() && !emailPattern.test(form.email.trim())) {
+    if (trimmedEmail && !emailPattern.test(trimmedEmail)) {
       setEmailError("Gecerli bir e-posta girin.");
       return;
     }
@@ -171,20 +174,20 @@ export default function SuppliersPage() {
     try {
       if (editingSupplierId) {
         await updateSupplier(editingSupplierId, {
-          name: form.name.trim(),
-          surname: form.surname.trim() || undefined,
-          address: form.address.trim() || undefined,
-          phoneNumber: form.phoneNumber.trim() || undefined,
-          email: form.email.trim() || undefined,
+          name: trimmedName,
+          surname: trimToUndefined(form.surname),
+          address: trimToUndefined(form.address),
+          phoneNumber: trimToUndefined(form.phoneNumber),
+          email: trimmedEmail || undefined,
           isActive: editingSupplierIsActive,
         });
       } else {
         await createSupplier({
-          name: form.name.trim(),
-          surname: form.surname.trim() || undefined,
-          address: form.address.trim() || undefined,
-          phoneNumber: form.phoneNumber.trim() || undefined,
-          email: form.email.trim() || undefined,
+          name: trimmedName,
+          surname: trimToUndefined(form.surname),
+          address: trimToUndefined(form.address),
+          phoneNumber: trimToUndefined(form.phoneNumber),
+          email: trimmedEmail || undefined,
         });
       }
 
@@ -212,10 +215,10 @@ export default function SuppliersPage() {
     try {
       await updateSupplier(supplier.id, {
         name: supplier.name,
-        surname: supplier.surname ?? undefined,
-        address: supplier.address ?? undefined,
-        phoneNumber: supplier.phoneNumber ?? undefined,
-        email: supplier.email ?? undefined,
+        surname: nullishToUndefined(supplier.surname),
+        address: nullishToUndefined(supplier.address),
+        phoneNumber: nullishToUndefined(supplier.phoneNumber),
+        email: nullishToUndefined(supplier.email),
         isActive: next,
       });
       await fetchSuppliers();
@@ -225,6 +228,8 @@ export default function SuppliersPage() {
       setTogglingSupplierIds((prev) => prev.filter((id) => id !== supplier.id));
     }
   };
+
+  if (!canReadPage) return null;
 
   return (
     <div className="space-y-4">
@@ -251,14 +256,14 @@ export default function SuppliersPage() {
         footer={
           meta ? (
             <TablePagination
-              page={currentPage}
-              totalPages={totalPages}
+              page={pagination.page}
+              totalPages={pagination.totalPages}
               total={meta.total}
-              pageSize={pageSize}
+              pageSize={pagination.pageSize}
               pageSizeId="suppliers-page-size"
               loading={loading}
-              onPageChange={setCurrentPage}
-              onPageSizeChange={onChangePageSize}
+              onPageChange={pagination.onPageChange}
+              onPageSizeChange={pagination.onPageSizeChange}
             />
           ) : null
         }

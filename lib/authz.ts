@@ -52,6 +52,7 @@ export type PermissionName =
   | "STORE_CREATE"
   | "STORE_UPDATE"
   | "STORE_DELETE"
+  // legacy alias, normalize to STORE_READ at session boundary
   | "STORE_VIEW"
   // Tedarikçi
   | "SUPPLIER_READ"
@@ -81,112 +82,19 @@ export type PermissionName =
   // Tenant
   | 'TENANT_ONLY';
 
-export type SessionUser = {
-  role?: string;
-  storeType?: string;
-  storeId?: string;
-  permissions?: string[];
-  store?: {
-    id?: string;
-    storeType?: string;
-  };
-  stores?: Array<{
-    id?: string;
-    storeId?: string;
-  }>;
-  storeIds?: string[];
-  userStores?: Array<{
-    storeId?: string;
-    storeType?: string;
-    store?: {
-      id?: string;
-      storeType?: string;
-    };
-  }>;
-};
-
-export type SessionStoreType = "RETAIL" | "WHOLESALE";
-
-export function getSessionUser(): SessionUser | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem("user");
-    if (!raw) return null;
-    return JSON.parse(raw) as SessionUser;
-  } catch {
-    return null;
-  }
+export function normalizePermissionName(permission: string): string {
+  if (permission === "STORE_VIEW") return "STORE_READ";
+  return permission;
 }
 
-export function getSessionUserPermissions(): string[] {
-  const user = getSessionUser();
-  return user?.permissions ?? [];
-}
+export function normalizePermissionNames(permissions: string[] | null | undefined): string[] {
+  if (!Array.isArray(permissions)) return [];
 
-export function hasPermission(permission: PermissionName): boolean {
-  const permissions = getSessionUserPermissions();
-  return permissions.includes(permission);
-}
-
-function asStoreType(storeType?: string | null): SessionStoreType | null {
-  if (!storeType) return null;
-  const normalized = storeType.toUpperCase();
-  if (normalized === "WHOLESALE") return "WHOLESALE";
-  if (normalized === "RETAIL") return "RETAIL";
-  return null;
-}
-
-export function getSessionUserStoreType(user?: SessionUser | null): SessionStoreType | null {
-  const resolvedUser = user ?? getSessionUser();
-  if (!resolvedUser) return null;
-
-  const direct = asStoreType(resolvedUser.storeType);
-  if (direct) return direct;
-
-  const fromStore = asStoreType(resolvedUser.store?.storeType);
-  if (fromStore) return fromStore;
-
-  if (Array.isArray(resolvedUser.userStores)) {
-    for (const item of resolvedUser.userStores) {
-      const fromUserStore = asStoreType(item?.storeType ?? item?.store?.storeType);
-      if (fromUserStore) return fromUserStore;
-    }
+  const normalized = new Set<string>();
+  for (const permission of permissions) {
+    if (typeof permission !== "string" || !permission.trim()) continue;
+    normalized.add(normalizePermissionName(permission));
   }
 
-  return null;
-}
-
-export function getSessionUserStoreIds(user: SessionUser | null): string[] {
-  if (!user) return [];
-
-  const ids = new Set<string>();
-  if (typeof user.storeId === "string" && user.storeId.trim()) {
-    ids.add(user.storeId);
-  }
-  const singleStoreId = user.store?.id;
-  if (typeof singleStoreId === "string" && singleStoreId.trim()) {
-    ids.add(singleStoreId);
-  }
-
-  if (Array.isArray(user.stores)) {
-    for (const item of user.stores) {
-      const storeId = item?.storeId ?? item?.id;
-      if (typeof storeId === "string" && storeId.trim()) ids.add(storeId);
-    }
-  }
-
-  if (Array.isArray(user.storeIds)) {
-    for (const storeId of user.storeIds) {
-      if (typeof storeId === "string" && storeId.trim()) ids.add(storeId);
-    }
-  }
-
-  if (Array.isArray(user.userStores)) {
-    for (const item of user.userStores) {
-      const storeId = item?.storeId ?? item?.store?.id;
-      if (typeof storeId === "string" && storeId.trim()) ids.add(storeId);
-    }
-  }
-
-  return [...ids];
+  return [...normalized];
 }

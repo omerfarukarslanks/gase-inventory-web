@@ -8,11 +8,11 @@ import { BuildIcon, CheckIcon, EmailIcon, LockIcon, UserIcon } from "../auth/ico
 import InputField from "../ui/InputField";
 import SocialButton from "../ui/SocialButton";
 import Logo from "../ui/Logo";
-import { login, signup, getMe, getGoogleAuthUrl, getMicrosoftAuthUrl } from "@/app/auth/auth";
+import { login, signup, getGoogleAuthUrl, getMicrosoftAuthUrl } from "@/app/auth/auth";
 import { ApiError } from "@/lib/api";
-import { clearAuthCookie, setAuthCookie } from "@/lib/cookie";
 import Button from "../ui/Button";
 import { useLang } from "@/context/LangContext";
+import { useSession } from "@/hooks/useSession";
 
 type Mode = "login" | "signup";
 
@@ -24,6 +24,7 @@ export default function AuthCard({ initialMode }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useLang();
+  const { signIn } = useSession();
 
   const mode: Mode = useMemo(() => (pathname?.includes("/signup") ? "signup" : "login"), [pathname]);
 
@@ -106,13 +107,7 @@ export default function AuthCard({ initialMode }: Props) {
     try {
       if (mode === "login") {
         const response = await login(form.email, form.password);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        clearAuthCookie();
-        localStorage.setItem("token", response.access_token);
-        setAuthCookie(response.access_token);
-        const user = await getMe(response.access_token);
-        localStorage.setItem("user", JSON.stringify(user));
+        await signIn(response.access_token);
         setSuccessMsg(t("auth.loginSuccess"));
         setTimeout(() => router.push("/dashboard"), 800);
       } else {
@@ -124,13 +119,7 @@ export default function AuthCard({ initialMode }: Props) {
           password: form.password,
         };
         const response = await signup(body);
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        clearAuthCookie();
-        localStorage.setItem("token", response.access_token);
-        setAuthCookie(response.access_token);
-        const user = await getMe(response.access_token);
-        localStorage.setItem("user", JSON.stringify(user));
+        await signIn(response.access_token);
         await new Promise((r) => setTimeout(r, 1500));
         setSuccessMsg(t("auth.accountCreated"));
         setTimeout(() => {

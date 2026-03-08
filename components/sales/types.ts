@@ -89,6 +89,12 @@ export type VariantPreset = {
   stores: VariantStorePreset[];
 };
 
+export type VariantOption = {
+  value: string;
+  label: string;
+  secondaryLabel?: string;
+};
+
 export const SALES_STATUS_OPTIONS = [
   { value: "DRAFT", label: "DRAFT" },
   { value: "CONFIRMED", label: "CONFIRMED" },

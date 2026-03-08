@@ -430,8 +430,7 @@ export async function createSaleReturn(
   });
 }
 
-export async function downloadSaleReceipt(saleId: string): Promise<Blob> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+export async function downloadSaleReceipt(saleId: string, token?: string | null): Promise<Blob> {
   const res = await fetch(`${BASE_URL}/sales/${saleId}/receipt`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

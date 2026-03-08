@@ -2,15 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getMe } from "@/app/auth/auth";
-import { clearAuthCookie, setAuthCookie } from "@/lib/cookie";
 import Logo from "@/components/ui/Logo";
+import { useSession } from "@/hooks/useSession";
 
 export default function AuthCallbackCard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [error, setError] = useState("");
+  const { signIn } = useSession();
 
   useEffect(() => {
     if (!token) {
@@ -21,16 +21,9 @@ export default function AuthCallbackCard() {
 
     const handleCallback = async () => {
       try {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        clearAuthCookie();
-        localStorage.setItem("token", token);
-        setAuthCookie(token);
-        const user = await getMe(token);
-        localStorage.setItem("user", JSON.stringify(user));
+        await signIn(token);
         router.replace("/dashboard");
       } catch {
-        localStorage.removeItem("token");
         setError("Giriş başarısız. Lütfen tekrar deneyin.");
         setTimeout(() => router.replace("/auth/login"), 2000);
       }

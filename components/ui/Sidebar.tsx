@@ -2,83 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { logout } from "@/app/auth/auth";
-import { clearAuthCookie } from "@/lib/cookie";
-import type { PermissionName } from "@/lib/authz";
 import { useLang } from "@/context/LangContext";
-
-type NavItem = {
-  href: string;
-  labelKey: string;
-  icon: string;
-  badge?: string;
-  permission?: PermissionName;
-  anyPermission?: PermissionName[];
-};
-
-const items: NavItem[] = [
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: "D" },
-  { href: "/products", labelKey: "nav.products", icon: "U", permission: "PRODUCT_READ" },
-  { href: "/product-packages", labelKey: "nav.packages", icon: "PK" },
-  { href: "/stock", labelKey: "nav.stock", icon: "S", badge: "3", permission: "STOCK_LIST_READ" },
-  { href: "/sales", labelKey: "nav.sales", icon: "TL", permission: "SALE_READ" },
-  { href: "/chat", labelKey: "nav.chat", icon: "AI", permission: "AI_CHAT" },
-];
-
-const adminItems: NavItem[] = [
-  { href: "/attributes", labelKey: "nav.attributes", icon: "O", permission: "PRODUCT_ATTRIBUTE_READ" },
-  { href: "/product-categories", labelKey: "nav.productCategories", icon: "UK", permission: "PRODUCT_CATEGORY_READ" },
-  { href: "/stores", labelKey: "nav.stores", icon: "M", permission: "STORE_VIEW" },
-  { href: "/suppliers", labelKey: "nav.suppliers", icon: "T", permission: "SUPPLIER_READ" },
-  { href: "/customers", labelKey: "nav.customers", icon: "C", permission: "CUSTOMER_READ" },
-  { href: "/users", labelKey: "nav.users", icon: "K", permission: "USER_READ" },
-  { href: "/permissions", labelKey: "nav.permissions", icon: "YT", permission: "PERMISSION_MANAGE" },
-  { href: "/reports", labelKey: "nav.reports", icon: "R", anyPermission: ["REPORT_SALES_READ", "REPORT_STOCK_READ", "REPORT_FINANCIAL_READ"] },
-];
-
-type LocalUser = {
-  name?: string;
-  surname?: string;
-  role?: string;
-  storeType?: string;
-  permissions?: string[];
-  store?: {
-    storeType?: string;
-  };
-  userStores?: Array<{
-    storeType?: string;
-    store?: {
-      storeType?: string;
-    };
-  }>;
-};
-
-function normalizeStoreType(value?: string | null): "RETAIL" | "WHOLESALE" | null {
-  if (!value) return null;
-  const normalized = value.toUpperCase();
-  if (normalized === "WHOLESALE") return "WHOLESALE";
-  if (normalized === "RETAIL") return "RETAIL";
-  return null;
-}
-
-function resolveUserStoreType(user: LocalUser): "RETAIL" | "WHOLESALE" | null {
-  const direct = normalizeStoreType(user.storeType);
-  if (direct) return direct;
-
-  const fromStore = normalizeStoreType(user.store?.storeType);
-  if (fromStore) return fromStore;
-
-  if (Array.isArray(user.userStores)) {
-    for (const item of user.userStores) {
-      const fromUserStore = normalizeStoreType(item?.storeType ?? item?.store?.storeType);
-      if (fromUserStore) return fromUserStore;
-    }
-  }
-
-  return null;
-}
+import { useSession } from "@/hooks/useSession";
+import { canAccessNavItem, MAIN_NAV_ITEMS, MANAGEMENT_NAV_ITEMS, type AppNavItem } from "@/lib/route-access";
 
 export default function Sidebar({
   collapsed,
@@ -91,42 +20,21 @@ export default function Sidebar({
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const { t } = useLang();
+  const { permissions, signOut, storeType, token, user } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [displayName, setDisplayName] = useState(t("nav.dashboard"));
-  const [displayRole, setDisplayRole] = useState("Admin");
-  const [canSeePackages, setCanSeePackages] = useState(false);
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
 
-  useEffect(() => {
-    try {
-      const rawUser = localStorage.getItem("user");
-      if (!rawUser) {
-        setDisplayName("User");
-        setDisplayRole("User");
-        setCanSeePackages(false);
-        setUserPermissions([]);
-        return;
-      }
-      const parsed = JSON.parse(rawUser) as LocalUser;
-      const fullName = [parsed.name, parsed.surname].filter(Boolean).join(" ").trim();
-      setDisplayName(fullName || "User");
-      setDisplayRole(parsed.role || "Admin");
-      setCanSeePackages(resolveUserStoreType(parsed) === "WHOLESALE");
-      setUserPermissions(parsed.permissions ?? []);
-    } catch {
-      setDisplayName("User");
-      setDisplayRole("User");
-      setCanSeePackages(false);
-      setUserPermissions([]);
-    }
-  }, []);
+  const displayName = useMemo(() => {
+    const fullName = [user?.name, user?.surname].filter(Boolean).join(" ").trim();
+    return fullName || "User";
+  }, [user?.name, user?.surname]);
 
-  const canSeeItem = (item: NavItem): boolean => {
-    if (item.permission && !userPermissions.includes(item.permission)) return false;
-    if (item.anyPermission && !item.anyPermission.some((p) => userPermissions.includes(p))) return false;
-    return true;
-  };
+  const displayRole = user?.role || "User";
+
+  const canSeeItem = useMemo(
+    () => (item: AppNavItem) => canAccessNavItem(item, { permissions, storeType }),
+    [permissions, storeType],
+  );
 
   useEffect(() => {
     const onDocClick = (event: MouseEvent) => {
@@ -152,16 +60,13 @@ export default function Sidebar({
     setLoggingOut(true);
 
     try {
-      const token = localStorage.getItem("token");
       if (token) {
         await logout(token);
       }
     } catch {
       // clear local session even if service call fails
     } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      clearAuthCookie();
+      signOut();
       setLoggingOut(false);
       setMenuOpen(false);
       router.push("/auth/login");
@@ -212,8 +117,8 @@ export default function Sidebar({
         </div>
 
         <ul className="space-y-1">
-          {items
-            .filter((it) => canSeeItem(it) && (canSeePackages || it.href !== "/product-packages"))
+          {MAIN_NAV_ITEMS
+            .filter(canSeeItem)
             .map((it) => (
             <li key={it.href}>
               <Link
@@ -254,7 +159,7 @@ export default function Sidebar({
         </div>
 
         <ul className="space-y-1">
-          {adminItems.filter(canSeeItem).map((it) => (
+          {MANAGEMENT_NAV_ITEMS.filter(canSeeItem).map((it) => (
             <li key={it.href}>
               <Link
                 href={it.href}

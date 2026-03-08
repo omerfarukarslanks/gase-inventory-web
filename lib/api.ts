@@ -1,4 +1,5 @@
 import { clearAuthCookie } from "./cookie";
+import { clearStoredSession, getActiveSessionToken } from "./session";
 
 export const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 let unauthorizedRedirectInProgress = false;
@@ -22,8 +23,8 @@ export async function apiFetch<T>(
   options?: ApiFetchOptions,
 ): Promise<T> {
   const { skipAuth, token: explicitToken, headers: optionHeaders, ...requestOptions } = options ?? {};
-  const storageToken = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const authToken = explicitToken ?? (!skipAuth ? storageToken : null);
+  const sessionToken = getActiveSessionToken();
+  const authToken = explicitToken ?? (!skipAuth ? sessionToken : null);
 
   const headers = {
     "Content-Type": "application/json",
@@ -42,8 +43,7 @@ export async function apiFetch<T>(
       body?.message ?? body?.error ?? `İstek başarısız (${res.status})`;
 
     if (res.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearStoredSession({ emitEvent: true });
       clearAuthCookie();
 
       if (!unauthorizedRedirectInProgress && !window.location.pathname.startsWith("/auth")) {

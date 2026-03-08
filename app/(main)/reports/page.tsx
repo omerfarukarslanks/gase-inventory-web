@@ -2,9 +2,23 @@
 
 import Link from "next/link";
 import { useLang } from "@/context/LangContext";
+import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 
 export default function ReportsPage() {
   const { t } = useLang();
+  const canReadPage = usePermissionGuard(
+    [
+      "REPORT_SALES_READ",
+      "REPORT_STOCK_READ",
+      "REPORT_FINANCIAL_READ",
+      "REPORT_EMPLOYEE_READ",
+      "REPORT_CUSTOMER_READ",
+      "REPORT_INVENTORY_READ",
+    ],
+    { mode: "any" },
+  );
+
+  if (!canReadPage) return null;
 
   const reportCategories = [
     {

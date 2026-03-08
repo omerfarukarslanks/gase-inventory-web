@@ -31,3 +31,9 @@ export const EMPTY_USER_FORM_ERRORS: UserFormErrors = {
   email: "",
   password: "",
 };
+
+export const USER_ROLE_OPTIONS = [
+  { value: "STAFF", label: "STAFF" },
+  { value: "MANAGER", label: "MANAGER" },
+  { value: "ADMIN", label: "ADMIN" },
+] as const;
