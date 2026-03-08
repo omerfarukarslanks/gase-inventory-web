@@ -8,9 +8,14 @@ import {
   type InventoryReceiveItem,
   type InventoryStoreStockItem,
 } from "@/lib/inventory";
+import { clearStringError } from "@/lib/form-errors";
 import type { Currency, ProductVariant } from "@/lib/products";
 import type { VariantActionParams } from "@/components/stock/StockTable";
 import type { AdjustTarget } from "@/components/stock/AdjustDrawer";
+import {
+  validateDistinctInventoryStoreIds,
+  validateInventoryItemsPresent,
+} from "@/components/stock/validation";
 import type { StockEntryInitialEntry } from "@/components/inventory/StockEntryForm";
 
 type UseStockAdjustFlowOptions = {
@@ -51,7 +56,7 @@ export function useStockAdjustFlow({
   const [adjustCurrency, setAdjustCurrency] = useState<Currency>("TRY");
 
   const openAdjustDrawer = useCallback(async (params: VariantActionParams) => {
-    setAdjustFormError("");
+    clearStringError(adjustFormError, setAdjustFormError);
     setAdjustLoading(true);
     setAdjustTarget({
       productVariantId: params.productVariantId,
@@ -89,7 +94,7 @@ export function useStockAdjustFlow({
 
     setAdjustOpen(true);
     setAdjustLoading(false);
-  }, [resolveVariantStores]);
+  }, [adjustFormError, resolveVariantStores]);
 
   const closeAdjustDrawer = useCallback(() => {
     if (adjustSubmitting) return;
@@ -97,28 +102,26 @@ export function useStockAdjustFlow({
     setAdjustTarget(null);
     setAdjustInitial({});
     setAdjustApplyToAllStores(false);
-    setAdjustFormError("");
-  }, [adjustSubmitting]);
+    clearStringError(adjustFormError, setAdjustFormError);
+  }, [adjustFormError, adjustSubmitting]);
 
   const submitAdjust = useCallback(async (items: InventoryReceiveItem[]) => {
     if (!adjustTarget) return;
 
-    if (items.length === 0) {
-      setAdjustFormError(atLeastOneStoreRowMessage);
+    const emptyItemsError = validateInventoryItemsPresent(items, atLeastOneStoreRowMessage);
+    if (emptyItemsError) {
+      setAdjustFormError(emptyItemsError);
       return;
     }
 
-    const usedStoreIds = new Set<string>();
-    for (const item of items) {
-      if (usedStoreIds.has(item.storeId)) {
-        setAdjustFormError(sameStoreTwiceMessage);
-        return;
-      }
-      usedStoreIds.add(item.storeId);
+    const duplicateStoreError = validateDistinctInventoryStoreIds(items, sameStoreTwiceMessage);
+    if (duplicateStoreError) {
+      setAdjustFormError(duplicateStoreError);
+      return;
     }
 
     setAdjustSubmitting(true);
-    setAdjustFormError("");
+    clearStringError(adjustFormError, setAdjustFormError);
 
     try {
       const adjustItems: InventoryAdjustItem[] = items.map((item) => ({
@@ -161,6 +164,7 @@ export function useStockAdjustFlow({
   }, [
     adjustApplyToAllStores,
     adjustErrorMessage,
+    adjustFormError,
     adjustSuccessMessage,
     adjustTarget,
     atLeastOneStoreRowMessage,

@@ -1,10 +1,13 @@
 "use client";
 
+import FormField from "@/components/ui/FormField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import TextareaField from "@/components/ui/TextareaField";
 import SaleQuickCustomerCreate from "@/components/sales/SaleQuickCustomerCreate";
-import { PAYMENT_METHOD_OPTIONS, type FieldErrors } from "@/components/sales/types";
+import { getPaymentMethodOptions, type FieldErrors } from "@/components/sales/types";
 import type { CreateCustomerRequest, Customer } from "@/lib/customers";
 import type { PaymentMethod } from "@/lib/sales";
+import { useLang } from "@/context/LangContext";
 
 type SaleDrawerDetailsSectionProps = {
   drawerOpen: boolean;
@@ -57,12 +60,14 @@ export default function SaleDrawerDetailsSection({
   errors,
   onClearError,
 }: SaleDrawerDetailsSectionProps) {
+  const { t } = useLang();
+  const paymentMethodOptions = getPaymentMethodOptions(t);
+
   return (
     <section className="rounded-xl2 border border-border bg-surface p-4">
       <div className="grid gap-3 md:grid-cols-2">
         {!editMode && canTenantOnly && (
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">Magaza *</label>
+          <FormField label={`${t("common.storeFilter")} *`}>
             <SearchableDropdown
               options={storeOptions}
               value={storeId}
@@ -70,11 +75,11 @@ export default function SaleDrawerDetailsSection({
                 onClearError("storeId");
                 onStoreIdChange(value);
               }}
-              placeholder="Magaza secin"
+              placeholder={t("stock.storePlaceholder")}
               showEmptyOption={false}
             />
             {errors.storeId && <p className="mt-1 text-xs text-error">{errors.storeId}</p>}
-          </div>
+          </FormField>
         )}
 
         <SaleQuickCustomerCreate
@@ -89,28 +94,26 @@ export default function SaleDrawerDetailsSection({
           onCustomerIdChange={onCustomerIdChange}
           onCustomerSelected={onCustomerSelected}
           onQuickCreateCustomer={onQuickCreateCustomer}
-          onClearCustomerError={() => onClearError("customerId")}
         />
 
         {!editMode && (
           <>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Odeme Yontemi *</label>
+            <FormField label={`${t("sales.paymentMethod")} *`}>
               <SearchableDropdown
-                options={PAYMENT_METHOD_OPTIONS}
+                options={paymentMethodOptions}
                 value={paymentMethod}
                 onChange={(value) => {
                   onClearError("paymentMethod");
                   onPaymentMethodChange((value || "") as PaymentMethod | "");
                 }}
-                placeholder="Odeme yontemi secin"
+                placeholder={t("sales.paymentMethodPlaceholder")}
                 showEmptyOption={false}
                 allowClear={false}
               />
               {errors.paymentMethod && <p className="mt-1 text-xs text-error">{errors.paymentMethod}</p>}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Odenen Tutar *</label>
+            </FormField>
+
+            <FormField label={`${t("sales.initialPaymentAmount")} *`}>
               <input
                 type="number"
                 min={0}
@@ -122,19 +125,18 @@ export default function SaleDrawerDetailsSection({
                 }}
                 className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-              {errors.initialPaymentAmount && (
-                <p className="mt-1 text-xs text-error">{errors.initialPaymentAmount}</p>
-              )}
-            </div>
+              {errors.initialPaymentAmount && <p className="mt-1 text-xs text-error">{errors.initialPaymentAmount}</p>}
+            </FormField>
           </>
         )}
 
         <div className="md:col-span-2">
-          <label className="mb-1 block text-xs font-semibold text-muted">Not</label>
-          <textarea
+          <TextareaField
+            label={t("stock.note")}
             value={note}
-            onChange={(event) => onNoteChange(event.target.value)}
-            className="min-h-[72px] w-full rounded-xl border border-border bg-surface2 px-3 py-2 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            onChange={onNoteChange}
+            placeholder={t("stock.notePlaceholder")}
+            textareaClassName="min-h-[72px] w-full rounded-xl border border-border bg-surface2 px-3 py-2 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>

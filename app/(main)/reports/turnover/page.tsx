@@ -1,140 +1,150 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
 import { getReportTurnover, type TurnoverItem } from "@/lib/reports";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import {
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+  ReportNumberInput,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import {
+  ReportTable,
+  ReportTableBody,
+  ReportTableCell,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
+import ReportBadge from "@/components/reports/ReportBadge";
+import {
+  formatReportDays,
+  formatReportDecimal,
+} from "@/lib/report-format";
 
 export default function TurnoverPage() {
-  const [data, setData] = useState<TurnoverItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [periodDaysInput, setPeriodDaysInput] = useState("30");
   const [periodDays, setPeriodDays] = useState(30);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportTurnover({ periodDays, limit: 50 });
-      setData(res.data ?? []);
-    } catch {
-      setData([]);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadItems = useCallback(async () => {
+    const res = await getReportTurnover({ periodDays, limit: 50 });
+    return res.data ?? [];
   }, [periodDays]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<TurnoverItem[]>({
+    initialData: [],
+    load: loadItems,
+  });
 
   const handleFilter = () => {
-    const parsed = parseInt(periodDaysInput, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      setPeriodDays(parsed);
+    const parsed = Number.parseInt(periodDaysInput, 10);
+    const nextPeriodDays = Number.isNaN(parsed) || parsed <= 0 ? periodDays : parsed;
+
+    if (nextPeriodDays === periodDays) {
+      void refresh();
+      return;
     }
+
+    setPeriodDays(nextPeriodDays);
   };
 
-  const classificationColor = (classification?: string): string => {
+  const classificationTone = (classification?: string) => {
     switch (classification) {
       case "FAST":
-        return "bg-green-500/10 text-green-500";
+        return "success";
       case "MEDIUM":
-        return "bg-yellow-500/10 text-yellow-500";
+        return "warning";
       case "SLOW":
-        return "bg-orange-500/10 text-orange-500";
+        return "warning";
       case "DEAD":
-        return "bg-red-500/10 text-red-500";
+        return "danger";
       default:
-        return "bg-gray-500/10 text-gray-500";
+        return "neutral";
     }
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/reports" className="text-sm text-primary hover:underline">
-          &larr; Raporlar
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-text">Stok Devir Hizi</h1>
-        <p className="text-sm text-muted">Urun bazli devir hizi analizi</p>
-      </div>
+      <ReportPageHeader
+        title="Stok Devir Hizi"
+        description="Urun bazli devir hizi analizi"
+      />
 
-      {/* Filters */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">Donem (gun)</label>
-            <input
-              type="number"
-              value={periodDaysInput}
-              onChange={(e) => setPeriodDaysInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFilter()}
-              min={1}
-              className="h-10 w-32 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            onClick={handleFilter}
-            className="h-10 rounded-xl bg-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
-          >
-            Filtrele
-          </button>
-        </div>
-      </div>
+      <ReportFilters className="p-6 shadow-glow">
+        <ReportFilterField label="Donem (gun)">
+          <ReportNumberInput
+            value={periodDaysInput}
+            onChange={(e) => setPeriodDaysInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleFilter()}
+            min={1}
+            className="w-32"
+          />
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Table */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        ) : error ? (
-          <p className="py-8 text-center text-sm text-red-500">{error}</p>
-        ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">Gosterilecek veri bulunamadi.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                  <th className="pb-3 pr-4">Urun</th>
-                  <th className="pb-3 pr-4">Varyant</th>
-                  <th className="pb-3 pr-4">Kod</th>
-                  <th className="pb-3 pr-4 text-right">Mevcut Stok</th>
-                  <th className="pb-3 pr-4 text-right">Satilan</th>
-                  <th className="pb-3 pr-4 text-right">Gunluk Ort.</th>
-                  <th className="pb-3 pr-4 text-right">Devir Hizi</th>
-                  <th className="pb-3 pr-4 text-right">Yeterlilik</th>
-                  <th className="pb-3 pr-4">Sinif</th>
-                </tr>
-              </thead>
-              <tbody>
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={data.length === 0}
+        emptyMessage="Gosterilecek veri bulunamadi."
+      >
+        <ReportTableSurface padded>
+          <ReportTableScroll>
+            <ReportTable>
+              <ReportTableHead>
+                <ReportTableHeadRow>
+                  <ReportTableHeaderCell compact>Urun</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Varyant</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Kod</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Mevcut Stok</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Satilan</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Gunluk Ort.</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Devir Hizi</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Yeterlilik</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Sinif</ReportTableHeaderCell>
+                </ReportTableHeadRow>
+              </ReportTableHead>
+              <ReportTableBody>
                 {data.map((item, i) => (
-                  <tr key={`${item.productVariantId}-${i}`} className="border-b border-border/50 transition-colors hover:bg-primary/5">
-                    <td className="py-3 pr-4 font-medium text-text">{item.productName ?? "-"}</td>
-                    <td className="py-3 pr-4 text-text">{item.variantName ?? "-"}</td>
-                    <td className="py-3 pr-4 text-muted">{item.variantCode ?? "-"}</td>
-                    <td className="py-3 pr-4 text-right text-text">{item.currentStock ?? 0}</td>
-                    <td className="py-3 pr-4 text-right text-text">{item.soldQuantity ?? 0}</td>
-                    <td className="py-3 pr-4 text-right text-text">{(item.dailyAvgSales ?? 0).toFixed(2)}</td>
-                    <td className="py-3 pr-4 text-right text-text">{(item.turnoverRate ?? 0).toFixed(2)}</td>
-                    <td className="py-3 pr-4 text-right text-text">{(item.supplyDays ?? 0) + " gun"}</td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${classificationColor(item.classification)}`}
-                      >
+                  <ReportTableRow
+                    key={`${item.productVariantId}-${i}`}
+                    className="border-b border-border/50 transition-colors hover:bg-primary/5"
+                  >
+                    <ReportTableCell compact className="font-medium text-text">{item.productName ?? "-"}</ReportTableCell>
+                    <ReportTableCell compact className="text-text">{item.variantName ?? "-"}</ReportTableCell>
+                    <ReportTableCell compact className="text-muted">{item.variantCode ?? "-"}</ReportTableCell>
+                    <ReportTableCell compact align="right" className="text-text">{item.currentStock ?? 0}</ReportTableCell>
+                    <ReportTableCell compact align="right" className="text-text">{item.soldQuantity ?? 0}</ReportTableCell>
+                    <ReportTableCell compact align="right" className="text-text">{formatReportDecimal(item.dailyAvgSales)}</ReportTableCell>
+                    <ReportTableCell compact align="right" className="text-text">{formatReportDecimal(item.turnoverRate)}</ReportTableCell>
+                    <ReportTableCell compact align="right" className="text-text">{formatReportDays(item.supplyDays)}</ReportTableCell>
+                    <ReportTableCell compact>
+                      <ReportBadge tone={classificationTone(item.classification)}>
                         {item.classification ?? "-"}
-                      </span>
-                    </td>
-                  </tr>
+                      </ReportBadge>
+                    </ReportTableCell>
+                  </ReportTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </ReportTableBody>
+            </ReportTable>
+          </ReportTableScroll>
+        </ReportTableSurface>
+      </ReportAsyncState>
     </div>
   );
 }

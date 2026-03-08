@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useLang } from "@/context/LangContext";
 import { cancelSale, type SaleListItem } from "@/lib/sales";
+import { buildCancelSaleMeta } from "@/components/sales/payload";
 
 type UseSaleCancellationOptions = {
   onRefreshSales: () => Promise<void>;
@@ -14,6 +16,7 @@ export function useSaleCancellation({
   onSuccess,
   onError,
 }: UseSaleCancellationOptions) {
+  const { t } = useLang();
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelTargetSale, setCancelTargetSale] = useState<SaleListItem | null>(null);
   const [cancellingSale, setCancellingSale] = useState(false);
@@ -38,20 +41,17 @@ export function useSaleCancellation({
 
     setCancellingSale(true);
     try {
-      await cancelSale(cancelTargetSale.id, {
-        reason: cancelReason.trim() || undefined,
-        note: cancelNote.trim() || undefined,
-      });
-      onSuccess("Satis fisi iptal edildi.");
+      await cancelSale(cancelTargetSale.id, buildCancelSaleMeta(cancelReason, cancelNote));
+      onSuccess(t("sales.saleCancelledSuccess"));
       setCancelDialogOpen(false);
       setCancelTargetSale(null);
       await onRefreshSales();
     } catch {
-      onError("Satis fisi iptal edilemedi. Lutfen tekrar deneyin.");
+      onError(t("sales.saleCancelError"));
     } finally {
       setCancellingSale(false);
     }
-  }, [cancelNote, cancelReason, cancelTargetSale, onError, onRefreshSales, onSuccess]);
+  }, [cancelNote, cancelReason, cancelTargetSale, onError, onRefreshSales, onSuccess, t]);
 
   return {
     cancelDialogOpen,

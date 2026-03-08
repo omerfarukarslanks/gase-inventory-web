@@ -6,11 +6,13 @@ import { downloadSaleReceipt } from "@/lib/sales";
 type UseSaleReceiptDownloadOptions = {
   token?: string | null;
   onError: (message: string) => void;
+  errorMessage: string;
 };
 
 export function useSaleReceiptDownload({
   token,
   onError,
+  errorMessage,
 }: UseSaleReceiptDownloadOptions) {
   const handleDownloadReceipt = useCallback(async (saleId: string) => {
     try {
@@ -22,9 +24,9 @@ export function useSaleReceiptDownload({
       anchor.click();
       URL.revokeObjectURL(url);
     } catch {
-      onError("Fis indirilemedi. Lutfen tekrar deneyin.");
+      onError(errorMessage);
     }
-  }, [onError, token]);
+  }, [errorMessage, onError, token]);
 
   return { handleDownloadReceipt };
 }

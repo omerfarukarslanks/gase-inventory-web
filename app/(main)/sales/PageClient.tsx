@@ -17,6 +17,7 @@ import { useSaleForm } from "@/components/sales/useSaleForm";
 import { useSaleReceiptDownload } from "@/components/sales/useSaleReceiptDownload";
 import SalesPageView from "@/components/sales/SalesPageView";
 import { useLang } from "@/context/LangContext";
+import { useStatusFeedback } from "@/hooks/useStatusFeedback";
 
 export default function SalesPage() {
   const { t } = useLang();
@@ -27,13 +28,13 @@ export default function SalesPage() {
   const canTenantOnly = can("TENANT_ONLY");
   const allStores = useStores();
   const stores = canTenantOnly ? allStores : [];
+  const feedback = useStatusFeedback({ errorDurationMs: 4500 });
 
   const {
     salesReceipts,
     salesMeta,
     salesLoading,
     salesError,
-    setSalesError,
     salesPage,
     salesLimit,
     salesStoreIds,
@@ -104,8 +105,6 @@ export default function SalesPage() {
     errors,
     submitting,
     formError,
-    success,
-    setSuccess,
     clearFieldError,
     handleCustomerIdChange,
     onSelectCustomer,
@@ -128,6 +127,8 @@ export default function SalesPage() {
     isWholesaleStoreType,
     variantPresetsById,
     onRefreshSales: fetchSalesReceipts,
+    onSuccess: feedback.showSuccess,
+    clearFeedback: feedback.clearAll,
   });
 
   const {
@@ -162,8 +163,8 @@ export default function SalesPage() {
   } = useSalePayments({
     paymentsLoadErrorMessage: t("sales.paymentsLoadError"),
     onRefreshSales: fetchSalesReceipts,
-    onSuccess: setSuccess,
-    onError: setSalesError,
+    onSuccess: feedback.showSuccess,
+    onError: feedback.showError,
   });
 
   const {
@@ -178,8 +179,8 @@ export default function SalesPage() {
     setCancelNote,
   } = useSaleCancellation({
     onRefreshSales: fetchSalesReceipts,
-    onSuccess: setSuccess,
-    onError: setSalesError,
+    onSuccess: feedback.showSuccess,
+    onError: feedback.showError,
   });
 
   const {
@@ -209,7 +210,7 @@ export default function SalesPage() {
     handleReturnNotesChange,
   } = useSaleReturns({
     onRefreshSales: fetchSalesReceipts,
-    onSuccess: setSuccess,
+    onSuccess: feedback.showSuccess,
   });
 
   const {
@@ -251,7 +252,8 @@ export default function SalesPage() {
 
   const { handleDownloadReceipt } = useSaleReceiptDownload({
     token,
-    onError: setSalesError,
+    onError: feedback.showError,
+    errorMessage: t("sales.receiptDownloadError"),
   });
 
   /* ── Render ── */
@@ -261,7 +263,8 @@ export default function SalesPage() {
     <SalesPageView
       title="Satislar"
       description="Satis fisleri ve yeni satis olusturma"
-      success={success}
+      success={feedback.success}
+      actionError={feedback.error}
       filtersProps={{
         showAdvancedFilters: showSalesAdvancedFilters,
         onToggleAdvancedFilters: () => setShowSalesAdvancedFilters((prev) => !prev),
@@ -373,7 +376,6 @@ export default function SalesPage() {
         errors,
         onClearError: clearFieldError,
         formError,
-        success,
         onClose: closeSaleDrawer,
         onSubmit,
       }}

@@ -32,7 +32,7 @@ export default function AttributesPage() {
         onCreate: state.openCreateDrawer,
         statusFilter: state.statusFilter,
         onStatusFilterChange: state.setStatusFilter,
-        onClearFilters: () => state.setStatusFilter("all"),
+        onClearFilters: state.clearAdvancedFilters,
       }}
       tableProps={{
         loading: state.loading,

@@ -201,7 +201,7 @@ export default function ProductTable({
                           type="button"
                           onClick={() => onToggleExpand(product.id)}
                           className="inline-flex h-7 w-7 items-center cursor-pointer justify-center rounded-lg text-muted transition-colors hover:bg-surface2 hover:text-text"
-                          aria-label={isExpanded ? "Varyantları gizle" : "Varyantları göster"}
+                          aria-label={isExpanded ? t("products.hideVariantsAria") : t("products.showVariantsAria")}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"

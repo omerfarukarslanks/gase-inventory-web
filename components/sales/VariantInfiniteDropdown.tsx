@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLang } from "@/context/LangContext";
 
 type VariantInfiniteDropdownProps = {
   options: Array<{ value: string; label: string; secondaryLabel?: string }>;
@@ -23,6 +24,7 @@ export default function VariantInfiniteDropdown({
   hasMore,
   onLoadMore,
 }: VariantInfiniteDropdownProps) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
@@ -73,14 +75,10 @@ export default function VariantInfiniteDropdown({
         onClick={() => setOpen((prev) => !prev)}
         className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-left text-sm text-text outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
       >
-        <span className={selected ? "text-text" : "text-muted"}>
-          {selected?.label ?? placeholder}
-        </span>
+        <span className={selected ? "text-text" : "text-muted"}>{selected?.label ?? placeholder}</span>
       </button>
 
-      {selected?.secondaryLabel && (
-        <p className="mt-1 text-xs text-muted">{selected.secondaryLabel}</p>
-      )}
+      {selected?.secondaryLabel && <p className="mt-1 text-xs text-muted">{selected.secondaryLabel}</p>}
 
       {open && (
         <div className="absolute z-30 mt-1 w-full rounded-xl border border-border bg-surface p-1 shadow-lg shadow-primary/10">
@@ -89,25 +87,26 @@ export default function VariantInfiniteDropdown({
               ref={searchRef}
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Varyant ara..."
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("sales.searchVariantPlaceholder")}
               className="h-9 w-full rounded-lg border border-border bg-surface2 px-2.5 text-sm text-text outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
 
           <div
             className="h-[240px] overflow-y-auto"
-            onScroll={(e) => {
-              const target = e.currentTarget;
+            onScroll={(event) => {
+              const target = event.currentTarget;
               setScrollTop(target.scrollTop);
-              const nearBottom = target.scrollTop + target.clientHeight >= target.scrollHeight - rowHeight * 2;
+              const nearBottom =
+                target.scrollTop + target.clientHeight >= target.scrollHeight - rowHeight * 2;
               if (nearBottom && hasMore && !loadingMore) onLoadMore();
             }}
           >
             {loading && options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted">Varyantlar yukleniyor...</div>
+              <div className="px-3 py-2 text-sm text-muted">{t("products.variantsLoading")}</div>
             ) : filtered.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted">Sonuc bulunamadi.</div>
+              <div className="px-3 py-2 text-sm text-muted">{t("common.noData")}</div>
             ) : (
               <div className="relative" style={{ height: totalHeight }}>
                 <div
@@ -140,7 +139,7 @@ export default function VariantInfiniteDropdown({
               </div>
             )}
             {loadingMore && (
-              <div className="px-3 py-2 text-xs text-muted">Daha fazla varyant yukleniyor...</div>
+              <div className="px-3 py-2 text-xs text-muted">{t("sales.loadingMoreVariants")}</div>
             )}
           </div>
         </div>

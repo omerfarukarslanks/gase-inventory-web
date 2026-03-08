@@ -9,6 +9,7 @@ import Button from "@/components/ui/Button";
 import StockEntryForm from "@/components/inventory/StockEntryForm";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { cn } from "@/lib/cn";
+import { useLang } from "@/context/LangContext";
 
 export type AdjustTarget = {
   productVariantId: string;
@@ -55,19 +56,21 @@ export default function AdjustDrawer({
   onClose,
   onSubmit,
 }: AdjustDrawerProps) {
+  const { t } = useLang();
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title="Stok Duzeltme"
+      title={t("stock.adjust")}
       description={target ? `${target.productName} / ${target.variantName}` : ""}
       closeDisabled={submitting}
       className={cn(isMobile ? "!max-w-none" : "!max-w-[560px]")}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="Iptal"
+            label={t("common.cancel")}
             type="button"
             onClick={onClose}
             disabled={submitting}
@@ -78,12 +81,12 @@ export default function AdjustDrawer({
     >
       <div className="space-y-3 p-5">
         {loading ? (
-          <p className="text-sm text-muted">Magaza bilgileri yukleniyor...</p>
+          <p className="text-sm text-muted">{t("stock.loadingStores")}</p>
         ) : (
           <>
             {canTenantOnly && (
               <div className="flex items-center justify-between rounded-xl border border-border bg-surface2/40 px-3 py-2.5">
-                <span className="text-xs font-semibold text-muted">Tum Magazalara Uygula</span>
+                <span className="text-xs font-semibold text-muted">{t("stock.applyToAllStores")}</span>
                 <ToggleSwitch
                   checked={applyToAllStores}
                   onChange={(checked) => onApplyToAllStoresChange?.(checked)}
@@ -91,6 +94,7 @@ export default function AdjustDrawer({
                 />
               </div>
             )}
+
             <StockEntryForm
               variants={variants}
               productCurrency={currency}

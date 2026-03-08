@@ -1,10 +1,12 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import FilterField from "@/components/ui/FilterField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchableMultiSelectDropdown from "@/components/ui/SearchableMultiSelectDropdown";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
-import { PAYMENT_STATUS_OPTIONS, SALES_STATUS_OPTIONS } from "@/components/sales/types";
+import { getPaymentStatusOptions, getSalesStatusOptions } from "@/components/sales/types";
+import { AdvancedFiltersPanel, FilterActionsRow } from "@/components/ui/PageToolbar";
 import { useLang } from "@/context/LangContext";
 
 type SalesFiltersProps = {
@@ -71,9 +73,12 @@ export default function SalesFilters({
   onResetPage,
 }: SalesFiltersProps) {
   const { t } = useLang();
+  const salesStatusOptions = getSalesStatusOptions(t);
+  const paymentStatusOptions = getPaymentStatusOptions(t);
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <FilterActionsRow>
         <Button
           label={showAdvancedFilters ? t("common.hideFilter") : t("common.filter")}
           onClick={onToggleAdvancedFilters}
@@ -88,13 +93,12 @@ export default function SalesFilters({
             className="px-3 py-1.5"
           />
         )}
-      </div>
+      </FilterActionsRow>
 
       {showAdvancedFilters && (
-        <div className="grid gap-3 rounded-xl2 border border-border bg-surface p-3 md:grid-cols-2 xl:grid-cols-4">
+        <AdvancedFiltersPanel className="md:grid-cols-2 xl:grid-cols-4">
           {canTenantOnly && (
-            <div className="xl:col-span-2">
-              <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.filterByStore")}</label>
+            <FilterField label={t("sales.filterByStore")} className="xl:col-span-2">
               <SearchableMultiSelectDropdown
                 options={storeOptions}
                 values={salesStoreIds}
@@ -104,48 +108,44 @@ export default function SalesFilters({
                 }}
                 placeholder={t("sales.allStores")}
               />
-            </div>
+            </FilterField>
           )}
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">Receipt No</label>
+          <FilterField label={t("sales.receiptNo")}>
             <input
               type="text"
               value={receiptNoFilter}
-              onChange={(e) => {
-                onReceiptNoFilterChange(e.target.value);
+              onChange={(event) => {
+                onReceiptNoFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.firstName")}</label>
+          </FilterField>
+          <FilterField label={t("sales.firstName")}>
             <input
               type="text"
               value={nameFilter}
-              onChange={(e) => {
-                onNameFilterChange(e.target.value);
+              onChange={(event) => {
+                onNameFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.surname")}</label>
+          </FilterField>
+          <FilterField label={t("sales.surname")}>
             <input
               type="text"
               value={surnameFilter}
-              onChange={(e) => {
-                onSurnameFilterChange(e.target.value);
+              onChange={(event) => {
+                onSurnameFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("common.status")}</label>
+          </FilterField>
+          <FilterField label={t("common.status")}>
             <SearchableMultiSelectDropdown
-              options={SALES_STATUS_OPTIONS}
+              options={salesStatusOptions}
               values={statusFilters}
               onChange={(values) => {
                 onStatusFiltersChange(values);
@@ -153,11 +153,10 @@ export default function SalesFilters({
               }}
               placeholder={t("sales.statusSelect")}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.paymentStatus")}</label>
+          </FilterField>
+          <FilterField label={t("sales.paymentStatus")}>
             <SearchableDropdown
-              options={PAYMENT_STATUS_OPTIONS}
+              options={paymentStatusOptions}
               value={paymentStatusFilter}
               onChange={(value) => {
                 onPaymentStatusFilterChange(value);
@@ -166,63 +165,59 @@ export default function SalesFilters({
               placeholder={t("sales.paymentStatusSelect")}
               emptyOptionLabel={t("sales.allPaymentStatuses")}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.minUnitPrice")}</label>
+          </FilterField>
+          <FilterField label={t("sales.minUnitPrice")}>
             <input
               type="number"
               min={0}
               step="0.01"
               value={minUnitPriceFilter}
-              onChange={(e) => {
-                onMinUnitPriceFilterChange(e.target.value);
+              onChange={(event) => {
+                onMinUnitPriceFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.maxUnitPrice")}</label>
+          </FilterField>
+          <FilterField label={t("sales.maxUnitPrice")}>
             <input
               type="number"
               min={0}
               step="0.01"
               value={maxUnitPriceFilter}
-              onChange={(e) => {
-                onMaxUnitPriceFilterChange(e.target.value);
+              onChange={(event) => {
+                onMaxUnitPriceFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.minLineTotal")}</label>
+          </FilterField>
+          <FilterField label={t("sales.minLineTotal")}>
             <input
               type="number"
               min={0}
               step="0.01"
               value={minLineTotalFilter}
-              onChange={(e) => {
-                onMinLineTotalFilterChange(e.target.value);
+              onChange={(event) => {
+                onMinLineTotalFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">{t("sales.maxLineTotal")}</label>
+          </FilterField>
+          <FilterField label={t("sales.maxLineTotal")}>
             <input
               type="number"
               min={0}
               step="0.01"
               value={maxLineTotalFilter}
-              onChange={(e) => {
-                onMaxLineTotalFilterChange(e.target.value);
+              onChange={(event) => {
+                onMaxLineTotalFilterChange(event.target.value);
                 onResetPage();
               }}
               className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
+          </FilterField>
           <div className="flex items-end">
             <div className="flex w-full items-center justify-between rounded-xl border border-border bg-surface2/40 px-3 py-2">
               <span className="text-xs font-semibold text-muted">{t("sales.includeLines")}</span>
@@ -235,7 +230,7 @@ export default function SalesFilters({
               />
             </div>
           </div>
-        </div>
+        </AdvancedFiltersPanel>
       )}
     </div>
   );

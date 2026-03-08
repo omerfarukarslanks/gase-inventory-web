@@ -4,9 +4,12 @@ import type { FormEvent } from "react";
 import type { Product } from "@/lib/products";
 import Drawer from "@/components/ui/Drawer";
 import Button from "@/components/ui/Button";
+import FormSectionHeader from "@/components/ui/FormSectionHeader";
 import InputField from "@/components/ui/InputField";
 import SearchableMultiSelectDropdown from "@/components/ui/SearchableMultiSelectDropdown";
+import TextareaField from "@/components/ui/TextareaField";
 import { SearchIcon } from "@/components/ui/icons/TableIcons";
+import { useLang } from "@/context/LangContext";
 import { cn } from "@/lib/cn";
 import type { FormErrors, PackageForm, PackageItemRow } from "@/components/product-packages/types";
 
@@ -71,30 +74,38 @@ export default function ProductPackageDrawer({
   onRemoveItem,
   onItemQuantityChange,
 }: ProductPackageDrawerProps) {
+  const { t } = useLang();
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title={editingId ? "Paketi Guncelle" : "Yeni Paket Olustur"}
+      title={editingId ? t("productPackages.update") : t("productPackages.new")}
       description={
         editingId
-          ? "Paket bilgilerini ve icerigini guncelleyin"
-          : "Paket bilgilerini ve urun kalemlerini tanimlayin"
+          ? t("productPackages.editDesc")
+          : t("productPackages.createDesc")
       }
       closeDisabled={submitting || loadingDetail}
       className={cn(isMobile && "!max-w-none")}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="Iptal"
+            label={t("common.cancel")}
             type="button"
             onClick={onClose}
             disabled={submitting || loadingDetail}
             variant="secondary"
           />
           <Button
-            label={submitting ? (editingId ? "Guncelleniyor..." : "Olusturuluyor...") : "Kaydet"}
+            label={
+              submitting
+                ? editingId
+                  ? t("common.updating")
+                  : t("common.creating")
+                : t("common.save")
+            }
             type="submit"
             form="package-form"
             disabled={submitting || loadingDetail}
@@ -105,44 +116,40 @@ export default function ProductPackageDrawer({
     >
       <form id="package-form" onSubmit={onSubmit} className="space-y-4 p-5">
         {loadingDetail ? (
-          <div className="text-sm text-muted">Paket detayi yukleniyor...</div>
+          <div className="text-sm text-muted">{t("productPackages.loadingDetail")}</div>
         ) : (
           <>
             <InputField
-              label="Paket Adi *"
+              label={t("productPackages.name")}
               type="text"
               value={form.name}
               onChange={(value) => onFormChange("name", value)}
-              placeholder="Kiyafet Paketi S/M/L"
+              placeholder={t("productPackages.namePlaceholder")}
               error={errors.name}
             />
 
             <InputField
-              label="Paket Kodu *"
+              label={t("productPackages.code")}
               type="text"
               value={form.code}
               onChange={(value) => onFormChange("code", value)}
-              placeholder="PKG-001"
+              placeholder={t("productPackages.codePlaceholder")}
               error={errors.code}
             />
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">Aciklama</label>
-              <textarea
-                value={form.description}
-                onChange={(event) => onFormChange("description", event.target.value)}
-                placeholder="S, M, L bedenlerinden birer adet icerir"
-                className="min-h-[80px] w-full rounded-xl2 border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/60"
-              />
-            </div>
+            <TextareaField
+              label={t("productPackages.description")}
+              value={form.description}
+              onChange={(value) => onFormChange("description", value)}
+              placeholder={t("productPackages.descriptionPlaceholder")}
+              textareaClassName="min-h-[80px] w-full rounded-xl2 border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/60"
+            />
 
             <div className="space-y-3 border-t border-border pt-4">
-              <div>
-                <h3 className="text-sm font-semibold text-text">Paket Kalemleri</h3>
-                <p className="mt-0.5 text-xs text-muted">
-                  Pakete eklenecek urun varyantlarini ve miktarlarini tanimlayin
-                </p>
-              </div>
+              <FormSectionHeader
+                title={t("productPackages.itemsTitle")}
+                description={t("productPackages.itemsSubtitle")}
+              />
 
               {errors.items && <p className="text-xs text-error">{errors.items}</p>}
 
@@ -154,7 +161,9 @@ export default function ProductPackageDrawer({
                         <p className="truncate text-sm text-text">{item.variantLabel}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="whitespace-nowrap text-xs text-muted">Adet:</label>
+                        <label className="whitespace-nowrap text-xs text-muted">
+                          {t("productPackages.quantity")}:
+                        </label>
                         <input
                           type="number"
                           min="1"
@@ -166,7 +175,7 @@ export default function ProductPackageDrawer({
                           type="button"
                           onClick={() => onRemoveItem(item.rowId)}
                           className="flex h-8 w-8 items-center justify-center rounded-lg text-error transition-colors hover:bg-error/10"
-                          title="Kalemi kaldir"
+                          title={t("productPackages.removeItem")}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6 6 18M6 6l12 12" />
@@ -179,23 +188,25 @@ export default function ProductPackageDrawer({
               )}
 
               <div className="space-y-3 rounded-xl2 border border-dashed border-border bg-surface2/20 p-3">
-                <p className="text-xs font-semibold text-muted">Varyant Ekle</p>
+                <p className="text-xs font-semibold text-muted">{t("productPackages.addVariant")}</p>
 
                 <div className="space-y-1">
-                  <label className="text-xs text-muted">Urun Ara</label>
+                  <label className="text-xs text-muted">{t("productPackages.searchProduct")}</label>
                   <div className="relative">
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">
                       <SearchIcon />
                     </div>
                     <input
                       type="text"
-                      placeholder="Urun adi veya SKU..."
+                      placeholder={t("productPackages.searchProductPlaceholder")}
                       value={variantSearchTerm}
                       onChange={(event) => onVariantSearchTermChange(event.target.value)}
                       className="h-9 w-full rounded-xl border border-border bg-surface pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                   </div>
-                  {variantSearchLoading && <p className="text-xs text-muted">Aranyor...</p>}
+                  {variantSearchLoading && (
+                    <p className="text-xs text-muted">{t("productPackages.searchLoading")}</p>
+                  )}
                   {!variantSearchLoading && variantSearchProducts.length > 0 && !selectedProductForVariant && (
                     <div className="max-h-40 overflow-y-auto rounded-xl border border-border bg-surface shadow-md">
                       {variantSearchProducts.map((product) => (
@@ -215,11 +226,11 @@ export default function ProductPackageDrawer({
 
                 {selectedProductForVariant && (
                   <div className="space-y-1">
-                    <label className="text-xs text-muted">Varyantlari Sec</label>
+                    <label className="text-xs text-muted">{t("productPackages.selectVariants")}</label>
                     {variantsLoading ? (
-                      <p className="text-xs text-muted">Varyantlar yukleniyor...</p>
+                      <p className="text-xs text-muted">{t("productPackages.variantsLoading")}</p>
                     ) : variantOptions.length === 0 ? (
-                      <p className="text-xs text-muted">Bu urun icin aktif varyant bulunamadi.</p>
+                      <p className="text-xs text-muted">{t("productPackages.noActiveVariants")}</p>
                     ) : (
                       <SearchableMultiSelectDropdown
                         options={variantOptions.filter(
@@ -229,8 +240,8 @@ export default function ProductPackageDrawer({
                         )}
                         values={selectedVariantIds}
                         onChange={onSelectedVariantIdsChange}
-                        placeholder="Varyantlari secin..."
-                        noResultsText="Secilebilir varyant kalmadi."
+                        placeholder={t("productPackages.selectVariantsPlaceholder")}
+                        noResultsText={t("productPackages.noSelectableVariants")}
                       />
                     )}
                   </div>
@@ -239,7 +250,7 @@ export default function ProductPackageDrawer({
                 {selectedVariantIds.length > 0 && (
                   <div className="flex items-end gap-2">
                     <div className="flex-1 space-y-1">
-                      <label className="text-xs text-muted">Miktar (paket basina adet)</label>
+                      <label className="text-xs text-muted">{t("productPackages.quantityPerPackage")}</label>
                       <input
                         type="number"
                         min="1"
@@ -249,7 +260,7 @@ export default function ProductPackageDrawer({
                       />
                     </div>
                     <Button
-                      label={`Secilenleri Ekle (${selectedVariantIds.length})`}
+                      label={`${t("productPackages.addSelected")} (${selectedVariantIds.length})`}
                       type="button"
                       onClick={onAddItem}
                       variant="primarySoft"

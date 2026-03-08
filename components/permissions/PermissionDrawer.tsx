@@ -5,6 +5,7 @@ import Button from "@/components/ui/Button";
 import InputField from "@/components/ui/InputField";
 import { cn } from "@/lib/cn";
 import type { PermForm } from "@/components/permissions/types";
+import { useLang } from "@/context/LangContext";
 
 type PermissionDrawerProps = {
   open: boolean;
@@ -35,30 +36,32 @@ export default function PermissionDrawer({
   onFormChange,
   onSubmit,
 }: PermissionDrawerProps) {
+  const { t } = useLang();
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title={editingPermId ? "Yetki Düzenle" : "Yeni Yetki"}
+      title={editingPermId ? t("permissions.editTitle") : t("permissions.createTitle")}
       description={
         editingPermId
-          ? "Yetki açıklamasını ve grubunu güncelleyin."
-          : "Sisteme yeni bir yetki tanımı ekleyin."
+          ? t("permissions.editDesc")
+          : t("permissions.createDesc")
       }
       closeDisabled={permSubmitting}
       className={cn(isMobile && "!max-w-none")}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="İptal"
+            label={t("common.cancel")}
             type="button"
             onClick={onClose}
             disabled={permSubmitting}
             variant="secondary"
           />
           <Button
-            label={permSubmitting ? "Kaydediliyor..." : "Kaydet"}
+            label={permSubmitting ? t("common.saving") : t("common.save")}
             type="button"
             onClick={onSubmit}
             disabled={permSubmitting}
@@ -69,30 +72,30 @@ export default function PermissionDrawer({
     >
       <div className="space-y-4 p-5">
         <InputField
-          label="Ad *"
+          label={t("permissions.name")}
           type="text"
           value={permForm.name}
           onChange={(value) => onFormChange("name", value)}
-          placeholder="SALE_CREATE"
+          placeholder={t("permissions.permissionNamePlaceholder")}
           error={permNameError}
           disabled={Boolean(editingPermId)}
         />
 
         <InputField
-          label="Açıklama *"
+          label={t("permissions.description")}
           type="text"
           value={permForm.description}
           onChange={(value) => onFormChange("description", value)}
-          placeholder="Yeni satış fişi oluşturma"
+          placeholder={t("permissions.permissionDescriptionPlaceholder")}
           error={permDescError}
         />
 
         <InputField
-          label="Grup *"
+          label={t("permissions.group")}
           type="text"
           value={permForm.group}
           onChange={(value) => onFormChange("group", value)}
-          placeholder="Satış"
+          placeholder={t("permissions.permissionGroupPlaceholder")}
           error={permGroupError}
         />
 

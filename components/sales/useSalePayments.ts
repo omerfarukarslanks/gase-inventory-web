@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { toNumberOrNull } from "@/lib/format";
+import { useLang } from "@/context/LangContext";
+import { clearStringError, clearStringRecordError } from "@/lib/form-errors";
 import type { Currency } from "@/lib/products";
 import {
   createSalePayment,
@@ -11,6 +12,8 @@ import {
   type PaymentMethod,
   type SalePayment,
 } from "@/lib/sales";
+import { buildSalePaymentPayload } from "@/components/sales/payload";
+import { validateSalePaymentSubmission } from "@/components/sales/validation";
 
 type UseSalePaymentsOptions = {
   paymentsLoadErrorMessage: string;
@@ -46,6 +49,7 @@ export function useSalePayments({
   onSuccess,
   onError,
 }: UseSalePaymentsOptions) {
+  const { t } = useLang();
   const [expandedPaymentSaleIds, setExpandedPaymentSaleIds] = useState<string[]>([]);
   const [paymentsBySaleId, setPaymentsBySaleId] = useState<Record<string, SalePayment[]>>({});
   const [paymentLoadingBySaleId, setPaymentLoadingBySaleId] = useState<Record<string, boolean>>({});
@@ -73,7 +77,7 @@ export function useSalePayments({
       if (!force && paymentLoadingBySaleId[saleId]) return;
 
       setPaymentLoadingBySaleId((prev) => ({ ...prev, [saleId]: true }));
-      setPaymentErrorBySaleId((prev) => ({ ...prev, [saleId]: "" }));
+      setPaymentErrorBySaleId((prev) => clearStringRecordError(prev, saleId));
       try {
         const payments = await getSalePayments(saleId);
         setPaymentsBySaleId((prev) => ({ ...prev, [saleId]: payments }));
@@ -111,9 +115,9 @@ export function useSalePayments({
     setPaymentMethodInput("CASH");
     setPaymentCurrency("TRY");
     setPaymentNoteInput("");
-    setPaymentFormError("");
+    clearStringError(paymentFormError, setPaymentFormError);
     setPaymentDrawerOpen(true);
-  }, []);
+  }, [paymentFormError]);
 
   const openEditPaymentDrawer = useCallback((saleId: string, payment: SalePayment) => {
     setPaymentDrawerSaleId(saleId);
@@ -123,56 +127,67 @@ export function useSalePayments({
     setPaymentMethodInput(normalizePaymentMethod(payment.paymentMethod as string | null | undefined));
     setPaymentCurrency(normalizeCurrency(payment.currency as string | null | undefined));
     setPaymentNoteInput(payment.note ?? "");
-    setPaymentFormError("");
+    clearStringError(paymentFormError, setPaymentFormError);
     setPaymentDrawerOpen(true);
-  }, []);
+  }, [paymentFormError]);
 
   const closePaymentDrawer = useCallback(() => {
     if (paymentSubmitting) return;
     setPaymentDrawerOpen(false);
-    setPaymentFormError("");
-  }, [paymentSubmitting]);
+    clearStringError(paymentFormError, setPaymentFormError);
+  }, [paymentFormError, paymentSubmitting]);
 
   const submitPayment = useCallback(async () => {
-    const amount = toNumberOrNull(paymentAmount);
     const normalizedPaidAt = paymentPaidAtInput.trim();
     const paidAt =
       normalizedPaidAt.length > 0
         ? new Date(`${normalizedPaidAt}T00:00:00.000Z`).toISOString()
         : undefined;
 
-    if (!paymentDrawerSaleId) {
-      setPaymentFormError("Satis kaydi secilmedi.");
-      return;
-    }
-
-    if (amount == null || amount < 0) {
-      setPaymentFormError("Gecerli bir tutar girin.");
+    const validation = validateSalePaymentSubmission(
+      {
+        saleId: paymentDrawerSaleId,
+        amount: paymentAmount,
+      },
+      {
+        saleRequired: t("sales.saleRecordRequired"),
+        amountInvalid: t("sales.paymentAmountInvalid"),
+      },
+    );
+    if (validation.error || validation.amount == null) {
+      setPaymentFormError(validation.error ?? t("sales.paymentAmountInvalid"));
       return;
     }
 
     setPaymentSubmitting(true);
-    setPaymentFormError("");
+    clearStringError(paymentFormError, setPaymentFormError);
 
     try {
       if (editingPaymentId) {
-        await updateSalePayment(paymentDrawerSaleId, editingPaymentId, {
-          amount,
-          paymentMethod: paymentMethodInput,
-          note: paymentNoteInput.trim() || undefined,
-          paidAt,
-          currency: paymentCurrency,
-        });
-        onSuccess("Odeme kaydi guncellendi.");
+        await updateSalePayment(
+          paymentDrawerSaleId,
+          editingPaymentId,
+          buildSalePaymentPayload({
+            amount: validation.amount,
+            paymentMethod: paymentMethodInput,
+            note: paymentNoteInput,
+            paidAt,
+            currency: paymentCurrency,
+          }),
+        );
+        onSuccess(t("sales.paymentUpdatedSuccess"));
       } else {
-        await createSalePayment(paymentDrawerSaleId, {
-          amount,
-          paymentMethod: paymentMethodInput,
-          note: paymentNoteInput.trim() || undefined,
-          paidAt,
-          currency: paymentCurrency,
-        });
-        onSuccess("Odeme kaydi eklendi.");
+        await createSalePayment(
+          paymentDrawerSaleId,
+          buildSalePaymentPayload({
+            amount: validation.amount,
+            paymentMethod: paymentMethodInput,
+            note: paymentNoteInput,
+            paidAt,
+            currency: paymentCurrency,
+          }),
+        );
+        onSuccess(t("sales.paymentCreatedSuccess"));
       }
 
       setPaymentDrawerOpen(false);
@@ -183,7 +198,9 @@ export function useSalePayments({
       await fetchSalePayments(paymentDrawerSaleId, true);
       await onRefreshSales();
     } catch {
-      setPaymentFormError(editingPaymentId ? "Odeme guncellenemedi." : "Odeme olusturulamadi.");
+      setPaymentFormError(
+        editingPaymentId ? t("sales.paymentUpdateError") : t("sales.paymentCreateError"),
+      );
     } finally {
       setPaymentSubmitting(false);
     }
@@ -195,9 +212,11 @@ export function useSalePayments({
     paymentAmount,
     paymentCurrency,
     paymentDrawerSaleId,
+    paymentFormError,
     paymentMethodInput,
     paymentNoteInput,
     paymentPaidAtInput,
+    t,
   ]);
 
   const openDeletePaymentDialog = useCallback((saleId: string, payment: SalePayment) => {
@@ -217,42 +236,42 @@ export function useSalePayments({
     setDeletingPayment(true);
     try {
       await deleteSalePayment(paymentDeleteTarget.saleId, paymentDeleteTarget.paymentId);
-      onSuccess("Odeme kaydi silindi.");
+      onSuccess(t("sales.paymentDeletedSuccess"));
       setPaymentDeleteDialogOpen(false);
       setPaymentDeleteTarget(null);
       await fetchSalePayments(paymentDeleteTarget.saleId, true);
       await onRefreshSales();
     } catch {
-      onError("Odeme kaydi silinemedi. Lutfen tekrar deneyin.");
+      onError(t("sales.paymentDeleteError"));
     } finally {
       setDeletingPayment(false);
     }
-  }, [fetchSalePayments, onError, onRefreshSales, onSuccess, paymentDeleteTarget]);
+  }, [fetchSalePayments, onError, onRefreshSales, onSuccess, paymentDeleteTarget, t]);
+
+  const withClearedPaymentFormError = useCallback((apply: () => void) => {
+    clearStringError(paymentFormError, setPaymentFormError);
+    apply();
+  }, [paymentFormError]);
 
   const handlePaymentAmountChange = useCallback((value: string) => {
-    if (paymentFormError) setPaymentFormError("");
-    setPaymentAmount(value);
-  }, [paymentFormError]);
+    withClearedPaymentFormError(() => setPaymentAmount(value));
+  }, [withClearedPaymentFormError]);
 
   const handlePaymentPaidAtInputChange = useCallback((value: string) => {
-    if (paymentFormError) setPaymentFormError("");
-    setPaymentPaidAtInput(value);
-  }, [paymentFormError]);
+    withClearedPaymentFormError(() => setPaymentPaidAtInput(value));
+  }, [withClearedPaymentFormError]);
 
   const handlePaymentMethodInputChange = useCallback((value: string) => {
-    if (paymentFormError) setPaymentFormError("");
-    setPaymentMethodInput(normalizePaymentMethod(value));
-  }, [paymentFormError]);
+    withClearedPaymentFormError(() => setPaymentMethodInput(normalizePaymentMethod(value)));
+  }, [withClearedPaymentFormError]);
 
   const handlePaymentCurrencyChange = useCallback((value: string) => {
-    if (paymentFormError) setPaymentFormError("");
-    setPaymentCurrency(normalizeCurrency(value));
-  }, [paymentFormError]);
+    withClearedPaymentFormError(() => setPaymentCurrency(normalizeCurrency(value)));
+  }, [withClearedPaymentFormError]);
 
   const handlePaymentNoteInputChange = useCallback((value: string) => {
-    if (paymentFormError) setPaymentFormError("");
-    setPaymentNoteInput(value);
-  }, [paymentFormError]);
+    withClearedPaymentFormError(() => setPaymentNoteInput(value));
+  }, [withClearedPaymentFormError]);
 
   return {
     expandedPaymentSaleIds,

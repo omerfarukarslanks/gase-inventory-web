@@ -7,6 +7,7 @@ import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchableMultiSelectDropdown from "@/components/ui/SearchableMultiSelectDropdown";
 import CollapsiblePanel from "@/components/ui/CollapsiblePanel";
 import { TrashIcon } from "@/components/ui/icons/TableIcons";
+import { useLang } from "@/context/LangContext";
 
 type ProductDrawerStep2Props = {
   variants: VariantForm[];
@@ -75,6 +76,8 @@ export default function ProductDrawerStep2({
   onRemoveAttribute,
   onUpdateAttribute,
 }: ProductDrawerStep2Props) {
+  const { t } = useLang();
+
   return (
     <>
       {/* Step indicator */}
@@ -85,16 +88,16 @@ export default function ProductDrawerStep2({
 
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-text">Varyantlar</h3>
-          <p className="text-xs text-muted">Urun icin renk, beden gibi varyantlar ekleyin</p>
+          <h3 className="text-sm font-semibold text-text">{t("products.variantsTitle")}</h3>
+          <p className="text-xs text-muted">{t("products.variantsDescription")}</p>
         </div>
       </div>
 
       {variants.length === 0 ? (
         <div className="rounded-xl2 border border-dashed border-border p-8 text-center">
-          <p className="text-sm text-muted">Henuz varyant eklenmedi.</p>
+          <p className="text-sm text-muted">{t("products.noVariantsYet")}</p>
           <p className="mt-1 text-xs text-muted">
-            Varyant eklemek zorunlu degildir, dogrudan urun olusturabilirsiniz.
+            {t("products.variantsOptionalHint")}
           </p>
         </div>
       ) : (
@@ -102,20 +105,20 @@ export default function ProductDrawerStep2({
           {variants.map((variant, vi) => (
             <CollapsiblePanel
               key={variant.clientKey}
-              title={`Varyant #${vi + 1}`}
+              title={`${t("products.variantTitlePrefix")} #${vi + 1}`}
               open={expandedVariantKeys.includes(variant.clientKey)}
               onToggle={() => onToggleVariantPanel(variant.clientKey)}
               toggleAriaLabel={
                 expandedVariantKeys.includes(variant.clientKey)
-                  ? "Varyanti daralt"
-                  : "Varyanti genislet"
+                  ? t("products.collapseVariantAria")
+                  : t("products.expandVariantAria")
               }
               rightSlot={
                 <button
                   type="button"
                   onClick={() => onRemoveVariant(vi)}
                   className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-error/10 hover:text-error transition-colors"
-                  aria-label="Varyanti sil"
+                  aria-label={t("products.deleteVariantAria")}
                 >
                   <TrashIcon />
                 </button>
@@ -124,13 +127,13 @@ export default function ProductDrawerStep2({
               {/* Attributes */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-muted">Ozellikler</label>
+                  <label className="text-xs font-semibold text-muted">{t("products.attributesLabel")}</label>
                   <button
                     type="button"
                     onClick={() => onAddAttribute(vi)}
                     className="text-xs cursor-pointer font-medium text-primary hover:text-primary/80 transition-colors"
                   >
-                    + Ozellik Ekle
+                    + {t("products.addAttribute")}
                   </button>
                 </div>
 
@@ -141,7 +144,7 @@ export default function ProductDrawerStep2({
                         options={getAttributeOptions(attributeDefinitions, variants, vi, ai)}
                         value={attr.id}
                         onChange={(v) => onUpdateAttribute(vi, ai, "id", v)}
-                        placeholder="Ozellik secin"
+                        placeholder={t("products.selectAttributePlaceholder")}
                         showEmptyOption={false}
                         allowClear={false}
                         className="flex-1"
@@ -150,7 +153,11 @@ export default function ProductDrawerStep2({
                         options={getValueOptions(attributeDefinitions, attr.id, attr.values)}
                         values={attr.values}
                         onChange={(values) => onUpdateAttribute(vi, ai, "values", values)}
-                        placeholder={attr.id ? "Deger(ler) secin" : "Once ozellik secin"}
+                        placeholder={
+                          attr.id
+                            ? t("products.selectValuesPlaceholder")
+                            : t("products.selectAttributeFirst")
+                        }
                         className="flex-1"
                       />
                       {variant.attributes.length > 1 && (
@@ -158,7 +165,7 @@ export default function ProductDrawerStep2({
                           type="button"
                           onClick={() => onRemoveAttribute(vi, ai)}
                           className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-muted hover:bg-error/10 hover:text-error transition-colors"
-                          aria-label="Ozelligi sil"
+                          aria-label={t("products.deleteAttributeAria")}
                         >
                           <svg
                             width="14"

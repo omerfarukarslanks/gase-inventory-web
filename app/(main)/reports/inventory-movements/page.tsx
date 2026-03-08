@@ -1,13 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import ReportBadge from "@/components/reports/ReportBadge";
+import {
+  ReportDateInput,
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import ReportSummaryCards from "@/components/reports/ReportSummaryCards";
+import {
+  ReportTable,
+  ReportTableBody,
+  ReportTableCell,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
+import { formatDate, formatPrice } from "@/lib/format";
+import { getDefaultReportDateRange } from "@/lib/report-dates";
+import { formatReportNumber } from "@/lib/report-format";
 import {
   getReportMovements,
   type MovementItem,
   type MovementSummaryByType,
 } from "@/lib/reports";
-import { formatPrice, formatDate } from "@/lib/format";
 
 function getMovementTypeLabel(type?: string | null) {
   if (type === "ADJUSTMENT") return "Duzeltme";
@@ -18,162 +41,169 @@ function getMovementTypeLabel(type?: string | null) {
   return type ?? "-";
 }
 
+const defaultDateRange = getDefaultReportDateRange();
+
 export default function InventoryMovementsPage() {
-  const today = new Date().toISOString().slice(0, 10);
-  const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+  const [startDateInput, setStartDateInput] = useState(defaultDateRange.startDate);
+  const [endDateInput, setEndDateInput] = useState(defaultDateRange.endDate);
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
 
-  const [data, setData] = useState<MovementItem[]>([]);
-  const [summaryByType, setSummaryByType] = useState<MovementSummaryByType[]>([]);
-  const [totals, setTotals] = useState<{ movementCount?: number; netQuantity?: number }>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [startDateInput, setStartDateInput] = useState(monthAgo);
-  const [endDateInput, setEndDateInput] = useState(today);
-  const [startDate, setStartDate] = useState(monthAgo);
-  const [endDate, setEndDate] = useState(today);
-  const hasCurrency = data.some((item) => Boolean(item.currency));
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportMovements({ startDate, endDate, limit: 50 });
-      setData(res.data ?? []);
-      setSummaryByType(res.summaryByType ?? []);
-      setTotals(res.totals ?? {});
-    } catch {
-      setData([]);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadData = useCallback(async () => {
+    const res = await getReportMovements({ startDate, endDate, limit: 50 });
+    return {
+      items: res.data ?? [],
+      summaryByType: res.summaryByType ?? [],
+      totals: res.totals ?? {},
+    };
   }, [startDate, endDate]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<{
+    items: MovementItem[];
+    summaryByType: MovementSummaryByType[];
+    totals: { movementCount?: number; netQuantity?: number };
+  }>({
+    initialData: {
+      items: [],
+      summaryByType: [],
+      totals: {},
+    },
+    load: loadData,
+  });
+
+  const { items, summaryByType, totals } = data;
+  const hasCurrency = items.some((item) => Boolean(item.currency));
 
   const handleFilter = () => {
+    if (startDateInput === startDate && endDateInput === endDate) {
+      void refresh();
+      return;
+    }
+
     setStartDate(startDateInput);
     setEndDate(endDateInput);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/reports" className="text-sm text-primary hover:underline">
-          &larr; Raporlar
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-text">Stok Hareketleri</h1>
-        <p className="text-sm text-muted">Giris/cikis hareket ozeti</p>
-      </div>
+      <ReportPageHeader
+        title="Stok Hareketleri"
+        description="Giris/cikis hareket ozeti"
+      />
 
-      {/* Filters */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">Baslangic Tarihi</label>
-            <input
-              type="date"
-              value={startDateInput}
-              onChange={(e) => setStartDateInput(e.target.value)}
-              className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">Bitis Tarihi</label>
-            <input
-              type="date"
-              value={endDateInput}
-              onChange={(e) => setEndDateInput(e.target.value)}
-              className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            onClick={handleFilter}
-            className="h-10 rounded-xl bg-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
-          >
-            Filtrele
-          </button>
-        </div>
-      </div>
+      <ReportFilters className="p-6 shadow-glow">
+        <ReportFilterField label="Baslangic Tarihi">
+          <ReportDateInput
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
+          />
+        </ReportFilterField>
+        <ReportFilterField label="Bitis Tarihi">
+          <ReportDateInput
+            value={endDateInput}
+            onChange={(e) => setEndDateInput(e.target.value)}
+          />
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Summary cards */}
       {!loading && !error && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-              <p className="text-sm text-muted">Toplam Hareket</p>
-              <p className="text-2xl font-bold text-text">{(totals.movementCount ?? 0).toLocaleString("tr-TR")}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-              <p className="text-sm text-muted">Net Miktar</p>
-              <p className="text-2xl font-bold text-text">{(totals.netQuantity ?? 0).toLocaleString("tr-TR")}</p>
-            </div>
-          </div>
+          <ReportSummaryCards
+            items={[
+              { label: "Toplam Hareket", value: formatReportNumber(totals.movementCount, { fallback: "0" }), className: "p-6 shadow-glow" },
+              { label: "Net Miktar", value: formatReportNumber(totals.netQuantity, { fallback: "0" }), className: "p-6 shadow-glow" },
+            ]}
+          />
           {summaryByType.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {summaryByType.map((s) => (
-                <div key={s.type} className="rounded-2xl border border-border bg-surface p-4 shadow-glow">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted">{getMovementTypeLabel(s.type)}</p>
-                  <p className="mt-1 text-lg font-bold text-text">{(s.movementCount ?? 0).toLocaleString("tr-TR")} hareket</p>
-                  <p className="text-sm text-muted">Toplam: {(s.totalQuantity ?? 0).toLocaleString("tr-TR")} adet</p>
-                </div>
-              ))}
-            </div>
+            <ReportSummaryCards
+              items={summaryByType.map((item) => ({
+                label: getMovementTypeLabel(item.type),
+                value: `${formatReportNumber(item.movementCount, { fallback: "0" })} hareket`,
+                description: `Toplam: ${formatReportNumber(item.totalQuantity, { fallback: "0" })} adet`,
+                className: "p-4 shadow-glow",
+              }))}
+              gridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              valueClassName="mt-1 text-lg"
+            />
           )}
         </div>
       )}
 
-      {/* Table */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        ) : error ? (
-          <p className="py-8 text-center text-sm text-red-500">{error}</p>
-        ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">Gosterilecek veri bulunamadi.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                  <th className="pb-3 pr-4">Tarih</th>
-                  <th className="pb-3 pr-4">Tip</th>
-                  <th className="pb-3 pr-4">Urun</th>
-                  <th className="pb-3 pr-4">Varyant</th>
-                  <th className="pb-3 pr-4">Magaza</th>
-                  <th className="pb-3 pr-4 text-right">Miktar</th>
-                  {hasCurrency && <th className="pb-3 pr-4 text-right">PB</th>}
-                  <th className="pb-3 pr-4 text-right">Birim Fiyat</th>
-                  <th className="pb-3 pr-4 text-right">Toplam</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((item, i) => (
-                  <tr key={item.id ?? i} className="border-b border-border/50 transition-colors hover:bg-primary/5">
-                    <td className="py-3 pr-4 text-muted">{formatDate(item.createdAt)}</td>
-                    <td className="py-3 pr-4">
-                      <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={items.length === 0}
+        emptyMessage="Gosterilecek veri bulunamadi."
+      >
+        <ReportTableSurface padded>
+          <ReportTableScroll>
+            <ReportTable>
+              <ReportTableHead>
+                <ReportTableHeadRow>
+                  <ReportTableHeaderCell compact>Tarih</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Tip</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Urun</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Varyant</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Magaza</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Miktar</ReportTableHeaderCell>
+                  {hasCurrency && <ReportTableHeaderCell compact align="right">PB</ReportTableHeaderCell>}
+                  <ReportTableHeaderCell compact align="right">Birim Fiyat</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Toplam</ReportTableHeaderCell>
+                </ReportTableHeadRow>
+              </ReportTableHead>
+              <ReportTableBody>
+                {items.map((item, index) => (
+                  <ReportTableRow
+                    key={item.id ?? index}
+                    className="border-b border-border/50 transition-colors hover:bg-primary/5"
+                  >
+                    <ReportTableCell compact className="text-muted">
+                      {formatDate(item.createdAt)}
+                    </ReportTableCell>
+                    <ReportTableCell compact>
+                      <ReportBadge>
                         {getMovementTypeLabel(item.type)}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 font-medium text-text">{item.product?.name ?? "-"}</td>
-                    <td className="py-3 pr-4 text-text">{item.productVariant?.name ?? "-"}</td>
-                    <td className="py-3 pr-4 text-text">{item.store?.name ?? "-"}</td>
-                    <td className="py-3 pr-4 text-right text-text">{item.quantity ?? 0}</td>
-                    {hasCurrency && <td className="py-3 pr-4 text-right text-text">{item.currency ?? "-"}</td>}
-                    <td className="py-3 pr-4 text-right text-text">{formatPrice(item.unitPrice)}</td>
-                    <td className="py-3 pr-4 text-right font-medium text-text">{formatPrice(item.lineTotal)}</td>
-                  </tr>
+                      </ReportBadge>
+                    </ReportTableCell>
+                    <ReportTableCell compact className="font-medium text-text">
+                      {item.product?.name ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact className="text-text">
+                      {item.productVariant?.name ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact className="text-text">
+                      {item.store?.name ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact align="right" className="text-text">
+                      {item.quantity ?? 0}
+                    </ReportTableCell>
+                    {hasCurrency && (
+                      <ReportTableCell compact align="right" className="text-text">
+                        {item.currency ?? "-"}
+                      </ReportTableCell>
+                    )}
+                    <ReportTableCell compact align="right" className="text-text">
+                      {formatPrice(item.unitPrice)}
+                    </ReportTableCell>
+                    <ReportTableCell compact align="right" className="font-medium text-text">
+                      {formatPrice(item.lineTotal)}
+                    </ReportTableCell>
+                  </ReportTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </ReportTableBody>
+            </ReportTable>
+          </ReportTableScroll>
+        </ReportTableSurface>
+      </ReportAsyncState>
     </div>
   );
 }

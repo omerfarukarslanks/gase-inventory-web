@@ -4,6 +4,8 @@ import { useCallback, useState } from "react";
 import { transferInventory, type InventoryStoreStockItem, type InventoryTransferPayload } from "@/lib/inventory";
 import type { VariantActionParams } from "@/components/stock/StockTable";
 import type { TransferFormState, TransferTarget } from "@/components/stock/TransferDrawer";
+import { clearStringError } from "@/lib/form-errors";
+import { validateInventoryTransferForm } from "@/components/stock/validation";
 
 type UseStockTransferFlowOptions = {
   onRefreshSummary: () => Promise<void>;
@@ -48,7 +50,7 @@ export function useStockTransferFlow({
   const [transferForm, setTransferForm] = useState<TransferFormState>(EMPTY_TRANSFER_FORM);
 
   const openTransferDrawer = useCallback(async (params: VariantActionParams) => {
-    setTransferFormError("");
+    clearStringError(transferFormError, setTransferFormError);
     setTransferLoading(true);
 
     const normalizedStores = await resolveVariantStores(params.productVariantId, params.stores);
@@ -61,43 +63,40 @@ export function useStockTransferFlow({
     setTransferForm(EMPTY_TRANSFER_FORM);
     setTransferOpen(true);
     setTransferLoading(false);
-  }, [resolveVariantStores]);
+  }, [resolveVariantStores, transferFormError]);
 
   const closeTransferDrawer = useCallback(() => {
     if (transferSubmitting) return;
     setTransferOpen(false);
     setTransferTarget(null);
-    setTransferFormError("");
-  }, [transferSubmitting]);
+    clearStringError(transferFormError, setTransferFormError);
+  }, [transferFormError, transferSubmitting]);
 
   const patchTransferForm = useCallback((patch: Partial<TransferFormState>) => {
+    clearStringError(transferFormError, setTransferFormError);
     setTransferForm((prev) => ({ ...prev, ...patch }));
-  }, []);
+  }, [transferFormError]);
 
   const submitTransfer = useCallback(async () => {
     if (!transferTarget) return;
-    if (!transferForm.fromStoreId) {
-      setTransferFormError(sourceStoreRequiredMessage);
-      return;
-    }
-    if (!transferForm.toStoreId) {
-      setTransferFormError(targetStoreRequiredMessage);
-      return;
-    }
-    if (transferForm.fromStoreId === transferForm.toStoreId) {
-      setTransferFormError(sameStoreErrorMessage);
-      return;
-    }
-    if (!transferForm.quantity || Number(transferForm.quantity) <= 0) {
-      setTransferFormError(quantityPositiveMessage);
-      return;
-    }
-
-    const quantity = Number(transferForm.quantity);
     const fromStore = transferTarget.stores.find((store) => store.storeId === transferForm.fromStoreId);
-    const available = Number(fromStore?.quantity ?? 0);
-    if (quantity > available) {
-      setTransferFormError(transferExceedsStockMessage);
+    const validation = validateInventoryTransferForm(
+      {
+        fromStoreId: transferForm.fromStoreId,
+        toStoreId: transferForm.toStoreId,
+        quantity: transferForm.quantity,
+        availableQuantity: Number(fromStore?.quantity ?? 0),
+      },
+      {
+        sourceStoreRequired: sourceStoreRequiredMessage,
+        targetStoreRequired: targetStoreRequiredMessage,
+        sameStoreError: sameStoreErrorMessage,
+        quantityPositive: quantityPositiveMessage,
+        exceedsStock: transferExceedsStockMessage,
+      },
+    );
+    if (validation.error || validation.quantity == null) {
+      setTransferFormError(validation.error ?? transferErrorMessage);
       return;
     }
 
@@ -105,7 +104,7 @@ export function useStockTransferFlow({
       fromStoreId: transferForm.fromStoreId,
       toStoreId: transferForm.toStoreId,
       productVariantId: transferTarget.productVariantId,
-      quantity,
+      quantity: validation.quantity,
       meta: {
         reason: transferForm.reason || undefined,
         note: transferForm.note || undefined,
@@ -113,7 +112,7 @@ export function useStockTransferFlow({
     };
 
     setTransferSubmitting(true);
-    setTransferFormError("");
+    clearStringError(transferFormError, setTransferFormError);
     try {
       await transferInventory(payload);
       onSuccess(transferSuccessMessage);
@@ -137,6 +136,7 @@ export function useStockTransferFlow({
     transferErrorMessage,
     transferExceedsStockMessage,
     transferForm,
+    transferFormError,
     transferSuccessMessage,
     transferTarget,
   ]);

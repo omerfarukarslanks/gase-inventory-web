@@ -4,6 +4,7 @@ import type { Permission, RoleEntry } from "@/lib/permissions";
 import Drawer from "@/components/ui/Drawer";
 import Button from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
+import { useLang } from "@/context/LangContext";
 
 type RolePermissionsDrawerProps = {
   open: boolean;
@@ -32,26 +33,28 @@ export default function RolePermissionsDrawer({
   onToggleRolePerm,
   onSaveRolePerms,
 }: RolePermissionsDrawerProps) {
+  const { t } = useLang();
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title={`${editingRole?.role ?? ""} — Yetkiler`}
-      description="Rol için aktif yetkileri seçin. Kaydet ile mevcut atama tamamen değiştirilir."
+      title={editingRole ? `${editingRole.role} - ${t("permissions.editRoleTitle")}` : t("permissions.editRoleTitle")}
+      description={t("permissions.editRoleDesc")}
       closeDisabled={roleSubmitting || roleLoading}
       className={cn(isMobile && "!max-w-none")}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="İptal"
+            label={t("common.cancel")}
             type="button"
             onClick={onClose}
             disabled={roleSubmitting || roleLoading}
             variant="secondary"
           />
           <Button
-            label={roleSubmitting ? "Kaydediliyor..." : "Kaydet"}
+            label={roleSubmitting ? t("common.saving") : t("common.save")}
             type="button"
             onClick={onSaveRolePerms}
             disabled={roleSubmitting || roleLoading}
@@ -62,9 +65,9 @@ export default function RolePermissionsDrawer({
     >
       <div className="space-y-5 p-5">
         {roleLoading ? (
-          <p className="text-sm text-muted">Yükleniyor...</p>
+          <p className="text-sm text-muted">{t("common.loading")}</p>
         ) : groupedPerms.size === 0 && !roleFormError ? (
-          <p className="text-sm text-muted">Yetki bulunamadı.</p>
+          <p className="text-sm text-muted">{t("permissions.noPermissions")}</p>
         ) : (
           [...groupedPerms.entries()].map(([group, permissions]) => (
             <div key={group} className="space-y-2">

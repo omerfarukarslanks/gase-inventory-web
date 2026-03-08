@@ -3,13 +3,15 @@
 import type { Currency } from "@/lib/products";
 import {
   CURRENCY_FILTER_OPTIONS,
-  STATUS_FILTER_OPTIONS,
+  getStatusFilterOptions,
   type IsActiveFilter,
   parseIsActiveFilter,
 } from "@/components/products/types";
 import Button from "@/components/ui/Button";
+import FilterField from "@/components/ui/FilterField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchInput from "@/components/ui/SearchInput";
+import { AdvancedFiltersPanel, FilterActionsRow, PageToolbar } from "@/components/ui/PageToolbar";
 import { useLang } from "@/context/LangContext";
 
 type ProductFiltersProps = {
@@ -60,80 +62,78 @@ export default function ProductFilters({
   onClearAdvancedFilters,
 }: ProductFiltersProps) {
   const { t } = useLang();
+  const statusOptions = getStatusFilterOptions(t);
+
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-text">{t("products.title")}</h1>
-          <p className="text-sm text-muted">{t("products.subtitle")}</p>
-        </div>
-        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-          <SearchInput
-            value={searchTerm}
-            onChange={onSearchChange}
-            placeholder={t("common.search")}
-            containerClassName="w-full lg:w-64"
-          />
-          <Button
-            label={showAdvancedFilters ? t("common.hideFilter") : t("common.filter")}
-            onClick={onToggleAdvancedFilters}
-            variant="secondary"
-            className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
-          />
-          {canCreate && (
+      <PageToolbar
+        title={t("products.title")}
+        description={t("products.subtitle")}
+        actions={
+          <FilterActionsRow className="w-full lg:w-auto">
+            <SearchInput
+              value={searchTerm}
+              onChange={onSearchChange}
+              placeholder={t("common.search")}
+              containerClassName="w-full lg:w-64"
+            />
             <Button
-              label={t("products.new")}
-              onClick={onNewProduct}
-              variant="primarySoft"
+              label={showAdvancedFilters ? t("common.hideFilter") : t("common.filter")}
+              onClick={onToggleAdvancedFilters}
+              variant="secondary"
               className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
             />
-          )}
-        </div>
-      </div>
+            {canCreate && (
+              <Button
+                label={t("products.new")}
+                onClick={onNewProduct}
+                variant="primarySoft"
+                className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
+              />
+            )}
+          </FilterActionsRow>
+        }
+      />
 
       {showAdvancedFilters && (
-        <div className="grid gap-3 rounded-xl2 border border-border bg-surface p-3 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.currencyLabel")}</label>
+        <AdvancedFiltersPanel className="md:grid-cols-2 lg:grid-cols-4">
+          <FilterField label={t("products.currencyLabel")}>
             <SearchableDropdown
               options={CURRENCY_FILTER_OPTIONS}
               value={currencyFilter}
               onChange={(value) => onCurrencyFilterChange(value as Currency | "")}
               placeholder={t("products.allCurrencies")}
               emptyOptionLabel={t("products.allCurrencies")}
-              inputAriaLabel="Para birimi filtresi"
-              clearAriaLabel="Para birimi filtresini temizle"
-              toggleAriaLabel="Para birimi listesini aç"
+              inputAriaLabel={t("products.currencyFilterAriaLabel")}
+              clearAriaLabel={t("products.currencyFilterClearAriaLabel")}
+              toggleAriaLabel={t("products.currencyFilterToggleAriaLabel")}
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.productStatus")}</label>
+          </FilterField>
+          <FilterField label={t("products.productStatus")}>
             <SearchableDropdown
-              options={STATUS_FILTER_OPTIONS}
+              options={statusOptions}
               value={productStatusFilter === "all" ? "all" : String(productStatusFilter)}
               onChange={(value) => onProductStatusFilterChange(parseIsActiveFilter(value))}
               placeholder={t("products.productStatus")}
               showEmptyOption={false}
               allowClear={false}
-              inputAriaLabel="Ürün durum filtresi"
-              toggleAriaLabel="Ürün durum listesini aç"
+              inputAriaLabel={t("products.productStatusFilterAriaLabel")}
+              toggleAriaLabel={t("products.productStatusFilterToggleAriaLabel")}
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.variantStatus")}</label>
+          </FilterField>
+          <FilterField label={t("products.variantStatus")}>
             <SearchableDropdown
-              options={STATUS_FILTER_OPTIONS}
+              options={statusOptions}
               value={variantStatusFilter === "all" ? "all" : String(variantStatusFilter)}
               onChange={(value) => onVariantStatusFilterChange(parseIsActiveFilter(value))}
               placeholder={t("products.variantStatus")}
               showEmptyOption={false}
               allowClear={false}
-              inputAriaLabel="Varyant durum filtresi"
-              toggleAriaLabel="Varyant durum listesini aç"
+              inputAriaLabel={t("products.variantStatusFilterAriaLabel")}
+              toggleAriaLabel={t("products.variantStatusFilterToggleAriaLabel")}
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.salePriceMin")}</label>
+          </FilterField>
+          <FilterField label={t("products.salePriceMin")}>
             <input
               type="number"
               value={salePriceMin}
@@ -141,9 +141,8 @@ export default function ProductFilters({
               placeholder="0"
               className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.salePriceMax")}</label>
+          </FilterField>
+          <FilterField label={t("products.salePriceMax")}>
             <input
               type="number"
               value={salePriceMax}
@@ -151,9 +150,8 @@ export default function ProductFilters({
               placeholder="1000"
               className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.purchasePriceMin")}</label>
+          </FilterField>
+          <FilterField label={t("products.purchasePriceMin")}>
             <input
               type="number"
               value={purchasePriceMin}
@@ -161,9 +159,8 @@ export default function ProductFilters({
               placeholder="0"
               className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("products.purchasePriceMax")}</label>
+          </FilterField>
+          <FilterField label={t("products.purchasePriceMax")}>
             <input
               type="number"
               value={purchasePriceMax}
@@ -171,7 +168,7 @@ export default function ProductFilters({
               placeholder="1000"
               className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
-          </div>
+          </FilterField>
           <div className="md:col-span-2 lg:col-span-4">
             <Button
               label={t("products.clearAdvancedFilters")}
@@ -180,7 +177,7 @@ export default function ProductFilters({
               className="w-full sm:w-auto"
             />
           </div>
-        </div>
+        </AdvancedFiltersPanel>
       )}
     </>
   );

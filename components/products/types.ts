@@ -69,9 +69,9 @@ export const EMPTY_PRODUCT_FORM: ProductForm = {
 };
 
 export const CURRENCY_OPTIONS = [
-  { value: "TRY", label: "TRY - Turk Lirasi" },
-  { value: "USD", label: "USD - Amerikan Dolari" },
-  { value: "EUR", label: "EUR - Euro" },
+  { value: "TRY", label: "TRY" },
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
 ];
 
 export const CURRENCY_FILTER_OPTIONS = [
@@ -80,11 +80,13 @@ export const CURRENCY_FILTER_OPTIONS = [
   { value: "EUR", label: "EUR" },
 ];
 
-export const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "Tum Durumlar" },
-  { value: "true", label: "Aktif" },
-  { value: "false", label: "Pasif" },
-];
+export function getStatusFilterOptions(t: (key: string) => string) {
+  return [
+    { value: "all", label: t("common.allStatuses") },
+    { value: "true", label: t("common.active") },
+    { value: "false", label: t("common.passive") },
+  ];
+}
 
 /* ── Helpers ── */
 

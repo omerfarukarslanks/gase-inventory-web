@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLang } from "@/context/LangContext";
 import { useDebounceStr } from "@/hooks/useDebounce";
 import { getSupplierById, getSuppliers, type Supplier } from "@/lib/suppliers";
 
@@ -20,8 +21,9 @@ function toOptionLabel(supplier: Supplier) {
 export default function SupplierInfiniteDropdown({
   value,
   onChange,
-  placeholder = "Tedarikci secin",
+  placeholder,
 }: SupplierInfiniteDropdownProps) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
@@ -45,6 +47,7 @@ export default function SupplierInfiniteDropdown({
     () => options.find((item) => item.value === value),
     [options, value],
   );
+  const resolvedPlaceholder = placeholder ?? t("products.supplierPlaceholder");
 
   const fetchPage = useCallback(async (nextPage: number, replace: boolean, searchTerm: string) => {
     const requestId = ++requestSeqRef.current;
@@ -154,7 +157,7 @@ export default function SupplierInfiniteDropdown({
         className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-left text-sm text-text outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
       >
         <span className={selected ? "text-text" : "text-muted"}>
-          {selected?.label ?? placeholder}
+          {selected?.label ?? resolvedPlaceholder}
         </span>
       </button>
 
@@ -163,7 +166,7 @@ export default function SupplierInfiniteDropdown({
           type="button"
           onClick={() => onChange("")}
           className="absolute right-8 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted transition-colors hover:bg-surface2 hover:text-text"
-          aria-label="Tedarikci secimini temizle"
+          aria-label={t("products.clearSupplierSelection")}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -186,7 +189,7 @@ export default function SupplierInfiniteDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted transition-colors hover:bg-surface2 hover:text-text"
-        aria-label="Tedarikci listesini ac"
+        aria-label={t("products.openSupplierList")}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -211,7 +214,7 @@ export default function SupplierInfiniteDropdown({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Tedarikci ara..."
+              placeholder={t("products.supplierSearchPlaceholder")}
               className="h-9 w-full rounded-lg border border-border bg-surface2 px-2.5 text-sm text-text outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -226,9 +229,9 @@ export default function SupplierInfiniteDropdown({
             }}
           >
             {loading && options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted">Tedarikciler yukleniyor...</div>
+              <div className="px-3 py-2 text-sm text-muted">{t("products.suppliersLoading")}</div>
             ) : options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted">Sonuc bulunamadi.</div>
+              <div className="px-3 py-2 text-sm text-muted">{t("products.supplierNoResults")}</div>
             ) : (
               <div className="relative" style={{ height: totalHeight }}>
                 <div
@@ -256,7 +259,7 @@ export default function SupplierInfiniteDropdown({
               </div>
             )}
             {loadingMore && (
-              <div className="px-3 py-2 text-xs text-muted">Daha fazla tedarikci yukleniyor...</div>
+              <div className="px-3 py-2 text-xs text-muted">{t("products.loadingMoreSuppliers")}</div>
             )}
           </div>
         </div>

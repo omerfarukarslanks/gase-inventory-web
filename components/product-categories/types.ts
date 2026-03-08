@@ -7,6 +7,10 @@ export type CategoryForm = {
   parentId: string;
 };
 
+export type ProductCategoriesPageMessages = {
+  loadErrorMessage: string;
+};
+
 export const EMPTY_FORM: CategoryForm = {
   name: "",
   slug: "",

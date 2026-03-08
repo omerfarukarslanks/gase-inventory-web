@@ -5,6 +5,7 @@ import TablePagination from "@/components/ui/TablePagination";
 import UsersFilters from "@/components/users/UsersFilters";
 import UsersTable from "@/components/users/UsersTable";
 import UserDrawer from "@/components/users/UserDrawer";
+import TableFooterPagination from "@/components/ui/TableFooterPagination";
 
 type UsersPageViewProps = {
   filtersProps: ComponentProps<typeof UsersFilters>;
@@ -24,7 +25,7 @@ export default function UsersPageView({
       <UsersFilters {...filtersProps} />
       <UsersTable
         {...tableProps}
-        footer={paginationProps ? <TablePagination {...paginationProps} /> : null}
+        footer={<TableFooterPagination paginationProps={paginationProps} />}
       />
       <UserDrawer {...drawerProps} />
     </div>

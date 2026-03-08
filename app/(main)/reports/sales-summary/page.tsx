@@ -1,135 +1,105 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
 import { getReportSalesSummary, type SalesSummaryResponse } from "@/lib/reports";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import ReportSummaryCards from "@/components/reports/ReportSummaryCards";
+import {
+  ReportDateInput,
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
 import { formatPrice } from "@/lib/format";
+import { formatReportNumber, formatReportPercent } from "@/lib/report-format";
+import { getDefaultReportDateRange } from "@/lib/report-dates";
 
-const today = new Date().toISOString().slice(0, 10);
-const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+const defaultDateRange = getDefaultReportDateRange();
 
 export default function SalesSummaryPage() {
-  const [startDate, setStartDate] = useState(monthAgo);
-  const [endDate, setEndDate] = useState(today);
-  const [data, setData] = useState<SalesSummaryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [startDateInput, setStartDateInput] = useState(defaultDateRange.startDate);
+  const [endDateInput, setEndDateInput] = useState(defaultDateRange.endDate);
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportSalesSummary({ startDate, endDate });
-      setData(res);
-    } catch {
-      setData(null);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadData = useCallback(async () => {
+    return getReportSalesSummary({ startDate, endDate });
   }, [startDate, endDate]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<SalesSummaryResponse | null>({
+    initialData: null,
+    load: loadData,
+  });
 
   const totals = data?.totals;
 
   const cards: { label: string; value: string }[] = [
-    { label: "Satis Adedi", value: String(totals?.saleCount ?? 0) },
-    { label: "Onaylanan", value: String(totals?.confirmedCount ?? 0) },
-    { label: "Iptal Edilen", value: String(totals?.cancelledCount ?? 0) },
+    { label: "Satis Adedi", value: formatReportNumber(totals?.saleCount, { fallback: "0" }) },
+    { label: "Onaylanan", value: formatReportNumber(totals?.confirmedCount, { fallback: "0" }) },
+    { label: "Iptal Edilen", value: formatReportNumber(totals?.cancelledCount, { fallback: "0" }) },
     { label: "Toplam Birim Fiyat", value: formatPrice(totals?.totalUnitPrice) },
     { label: "Toplam Ciro", value: formatPrice(totals?.totalLineTotal) },
     { label: "Ortalama Sepet", value: formatPrice(totals?.averageBasket) },
     {
       label: "Iptal Orani",
-      value:
-        totals?.cancelRate != null
-          ? `%${(totals.cancelRate * 100).toFixed(1)}`
-          : "-",
+      value: formatReportPercent(totals?.cancelRate, { multiplyBy100: true }),
     },
   ];
 
+  const handleFilter = () => {
+    if (startDateInput === startDate && endDateInput === endDate) {
+      void refresh();
+      return;
+    }
+
+    setStartDate(startDateInput);
+    setEndDate(endDateInput);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <Link
-          href="/reports"
-          className="mb-2 inline-block text-sm text-primary hover:underline"
-        >
-          &larr; Raporlar
-        </Link>
-        <h1 className="text-xl font-semibold text-text">Satis Ozeti</h1>
-        <p className="text-sm text-muted">
-          Secilen tarih araligindaki genel satis istatistikleri
-        </p>
-      </div>
+      <ReportPageHeader
+        title="Satis Ozeti"
+        description="Secilen tarih araligindaki genel satis istatistikleri"
+      />
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Baslangic
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+      <ReportFilters>
+        <ReportFilterField label="Baslangic">
+          <ReportDateInput
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Bitis
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        </ReportFilterField>
+        <ReportFilterField label="Bitis">
+          <ReportDateInput
+            value={endDateInput}
+            onChange={(e) => setEndDateInput(e.target.value)}
           />
-        </div>
-        <button
-          onClick={() => void fetchData()}
-          disabled={loading}
-          className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "Yukleniyor..." : "Filtrele"}
-        </button>
-      </div>
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">Yukleniyor...</p>
-        </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      ) : !totals ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">
-            Secilen tarih araliginda veri bulunamadi.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {cards.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-2xl border border-border bg-surface p-5"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {card.label}
-              </p>
-              <p className="mt-2 text-2xl font-bold text-text">{card.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={!totals}
+        emptyMessage="Secilen tarih araliginda veri bulunamadi."
+      >
+        <ReportSummaryCards
+          items={cards}
+          gridClassName="sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        />
+      </ReportAsyncState>
     </div>
   );
 }

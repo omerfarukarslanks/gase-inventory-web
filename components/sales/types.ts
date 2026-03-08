@@ -2,6 +2,7 @@ import type { Currency } from "@/lib/products";
 import { toNumberOrNull } from "@/lib/format";
 import type { PaymentMethod } from "@/lib/sales";
 
+export type TranslateFn = (key: string) => string;
 export type LineMode = "percent" | "amount";
 
 export type SaleLineForm = {
@@ -95,26 +96,32 @@ export type VariantOption = {
   secondaryLabel?: string;
 };
 
-export const SALES_STATUS_OPTIONS = [
-  { value: "DRAFT", label: "DRAFT" },
-  { value: "CONFIRMED", label: "CONFIRMED" },
-  { value: "CANCELLED", label: "CANCELLED" },
-];
+export function getSalesStatusOptions(t: TranslateFn) {
+  return [
+    { value: "DRAFT", label: t("sales.statusDraft") },
+    { value: "CONFIRMED", label: t("sales.statusConfirmed") },
+    { value: "CANCELLED", label: t("sales.statusCancelled") },
+  ];
+}
 
-export const PAYMENT_STATUS_OPTIONS = [
-  { value: "PAID", label: "Odendi" },
-  { value: "PARTIAL", label: "Kismi Odendi" },
-  { value: "UNPAID", label: "Odenmedi" },
-  { value: "PENDING", label: "Beklemede" },
-  { value: "CANCELLED", label: "Iptal Edildi" },
-];
+export function getPaymentStatusOptions(t: TranslateFn) {
+  return [
+    { value: "PAID", label: t("sales.paymentPaid") },
+    { value: "PARTIAL", label: t("sales.paymentPartial") },
+    { value: "UNPAID", label: t("sales.paymentUnpaid") },
+    { value: "PENDING", label: t("sales.paymentPending") },
+    { value: "CANCELLED", label: t("sales.paymentCancelled") },
+  ];
+}
 
-export const PAYMENT_METHOD_OPTIONS: Array<{ value: PaymentMethod; label: string }> = [
-  { value: "CASH", label: "Nakit" },
-  { value: "CARD", label: "Kart" },
-  { value: "TRANSFER", label: "Havale/EFT" },
-  { value: "OTHER", label: "Diger" },
-];
+export function getPaymentMethodOptions(t: TranslateFn): Array<{ value: PaymentMethod; label: string }> {
+  return [
+    { value: "CASH", label: t("sales.methodCash") },
+    { value: "CARD", label: t("sales.methodCard") },
+    { value: "TRANSFER", label: t("sales.methodTransfer") },
+    { value: "OTHER", label: t("sales.methodOther") },
+  ];
+}
 
 export function createLineRow(): SaleLineForm {
   return {

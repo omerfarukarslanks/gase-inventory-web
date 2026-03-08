@@ -5,7 +5,7 @@ import type { ProductActionParams } from "@/components/stock/StockTable";
 import type {
   ProductInventoryOperation,
   ProductInventoryTarget,
-} from "@/components/stock/ProductInventoryDrawer";
+} from "@/components/stock/product-inventory-types";
 
 type UseStockProductDrawerOptions = {
   onRefreshSummary: () => Promise<void>;

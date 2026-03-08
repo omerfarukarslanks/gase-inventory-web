@@ -5,6 +5,8 @@ import TablePagination from "@/components/ui/TablePagination";
 import AttributesFilters from "@/components/attributes/AttributesFilters";
 import AttributesTable from "@/components/attributes/AttributesTable";
 import AttributeDrawer from "@/components/attributes/AttributeDrawer";
+import StatusBanner from "@/components/ui/StatusBanner";
+import TableFooterPagination from "@/components/ui/TableFooterPagination";
 
 type AttributesPageViewProps = {
   success: string;
@@ -28,19 +30,19 @@ export default function AttributesPageView({
       <AttributesFilters {...filtersProps} />
 
       {success && (
-        <div className="animate-fi rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+        <StatusBanner tone="success" className="animate-fi">
           {success}
-        </div>
+        </StatusBanner>
       )}
       {error && (
-        <div className="animate-fi rounded-xl border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">
+        <StatusBanner tone="error" className="animate-fi">
           {error}
-        </div>
+        </StatusBanner>
       )}
 
       <AttributesTable
         {...tableProps}
-        footer={paginationProps ? <TablePagination {...paginationProps} /> : null}
+        footer={<TableFooterPagination paginationProps={paginationProps} />}
       />
 
       <AttributeDrawer {...drawerProps} />

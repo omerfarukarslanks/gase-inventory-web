@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLang } from "@/context/LangContext";
 import { useDebounceStr } from "@/hooks/useDebounce";
 import { getCustomerById, getCustomers, type Customer } from "@/lib/customers";
+import { trimToUndefined } from "@/lib/payload";
 
 type CustomerInfinityDropdownProps = {
   value: string;
@@ -24,9 +26,11 @@ export default function CustomerInfinityDropdown({
   value,
   onChange,
   onSelectCustomer,
-  placeholder = "Musteri secin",
+  placeholder,
   refreshKey = 0,
 }: CustomerInfinityDropdownProps) {
+  const { t } = useLang();
+  const resolvedPlaceholder = placeholder ?? t("sales.customerPlaceholder");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scrollTop, setScrollTop] = useState(0);
@@ -64,7 +68,7 @@ export default function CustomerInfinityDropdown({
       const res = await getCustomers({
         page: nextPage,
         limit: PAGE_SIZE,
-        search: searchTerm.trim() || undefined,
+        search: trimToUndefined(searchTerm),
         isActive: true,
       });
 
@@ -158,7 +162,7 @@ export default function CustomerInfinityDropdown({
         className="h-10 w-full rounded-xl border border-border bg-surface px-3 text-left text-sm text-text outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
       >
         <span className={selected ? "text-text" : "text-muted"}>
-          {selected?.label ?? placeholder}
+          {selected?.label ?? resolvedPlaceholder}
         </span>
       </button>
 
@@ -167,7 +171,7 @@ export default function CustomerInfinityDropdown({
           type="button"
           onClick={() => onChange("")}
           className="absolute right-8 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted transition-colors hover:bg-surface2 hover:text-text"
-          aria-label="Musteri secimini temizle"
+          aria-label={t("sales.clearCustomerSelection")}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -190,7 +194,7 @@ export default function CustomerInfinityDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted transition-colors hover:bg-surface2 hover:text-text"
-        aria-label="Musteri listesini ac"
+        aria-label={t("sales.openCustomerList")}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -215,7 +219,7 @@ export default function CustomerInfinityDropdown({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Musteri ara..."
+              placeholder={t("sales.customerSearchPlaceholder")}
               className="h-9 w-full rounded-lg border border-border bg-surface2 px-2.5 text-sm text-text outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -230,9 +234,9 @@ export default function CustomerInfinityDropdown({
             }}
           >
             {loading && options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted">Musteriler yukleniyor...</div>
+              <div className="px-3 py-2 text-sm text-muted">{t("sales.customersLoading")}</div>
             ) : options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-muted">Sonuc bulunamadi.</div>
+              <div className="px-3 py-2 text-sm text-muted">{t("common.noData")}</div>
             ) : (
               <div className="relative" style={{ height: totalHeight }}>
                 <div
@@ -261,7 +265,7 @@ export default function CustomerInfinityDropdown({
               </div>
             )}
             {loadingMore && (
-              <div className="px-3 py-2 text-xs text-muted">Daha fazla musteri yukleniyor...</div>
+              <div className="px-3 py-2 text-xs text-muted">{t("sales.loadingMoreCustomers")}</div>
             )}
           </div>
         </div>

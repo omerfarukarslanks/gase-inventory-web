@@ -1,9 +1,12 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import FilterField from "@/components/ui/FilterField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchInput from "@/components/ui/SearchInput";
-import { STATUS_FILTER_OPTIONS, parseIsActiveFilter } from "@/components/products/types";
+import { getStatusFilterOptions, parseIsActiveFilter } from "@/components/products/types";
+import { AdvancedFiltersPanel, FilterActionsRow, PageToolbar } from "@/components/ui/PageToolbar";
+import { useLang } from "@/context/LangContext";
 
 type ProductPackageFiltersProps = {
   searchTerm: string;
@@ -26,59 +29,61 @@ export default function ProductPackageFilters({
   onClearAdvancedFilters,
   onNewPackage,
 }: ProductPackageFiltersProps) {
+  const { t } = useLang();
+  const statusOptions = getStatusFilterOptions(t);
+
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-text">Urun Paketleri</h1>
-          <p className="text-sm text-muted">Toptan satis paket tanimlari ve yonetimi</p>
-        </div>
-        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-          <SearchInput
-            value={searchTerm}
-            onChange={onSearchChange}
-            placeholder="Ara..."
-            containerClassName="w-full lg:w-64"
-          />
-          <Button
-            label={showAdvancedFilters ? "Detayli Filtreyi Gizle" : "Detayli Filtre"}
-            onClick={onToggleAdvancedFilters}
-            variant="secondary"
-            className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
-          />
-          <Button
-            label="Yeni Paket"
-            onClick={onNewPackage}
-            variant="primarySoft"
-            className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
-          />
-        </div>
-      </div>
+      <PageToolbar
+        title={t("productPackages.title")}
+        description={t("productPackages.subtitle")}
+        actions={
+          <FilterActionsRow className="w-full lg:w-auto">
+            <SearchInput
+              value={searchTerm}
+              onChange={onSearchChange}
+              placeholder={t("common.search")}
+              containerClassName="w-full lg:w-64"
+            />
+            <Button
+              label={showAdvancedFilters ? t("common.hideFilter") : t("common.filter")}
+              onClick={onToggleAdvancedFilters}
+              variant="secondary"
+              className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
+            />
+            <Button
+              label={t("productPackages.new")}
+              onClick={onNewPackage}
+              variant="primarySoft"
+              className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
+            />
+          </FilterActionsRow>
+        }
+      />
 
       {showAdvancedFilters && (
-        <div className="grid gap-3 rounded-xl2 border border-border bg-surface p-3 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Durum</label>
+        <AdvancedFiltersPanel className="md:grid-cols-2 lg:grid-cols-3">
+          <FilterField label={t("common.status")}>
             <SearchableDropdown
-              options={STATUS_FILTER_OPTIONS}
+              options={statusOptions}
               value={statusFilter === "all" ? "all" : String(statusFilter)}
               onChange={(value) => onStatusFilterChange(parseIsActiveFilter(value))}
-              placeholder="Tum Durumlar"
+              placeholder={t("common.allStatuses")}
               showEmptyOption={false}
               allowClear={false}
-              inputAriaLabel="Paket durum filtresi"
-              toggleAriaLabel="Paket durum listesini ac"
+              inputAriaLabel={t("common.status")}
+              toggleAriaLabel={t("common.status")}
             />
-          </div>
+          </FilterField>
           <div className="md:col-span-2 lg:col-span-3">
             <Button
-              label="Filtreleri Temizle"
+              label={t("common.clearFilters")}
               onClick={onClearAdvancedFilters}
               variant="secondary"
               className="w-full sm:w-auto"
             />
           </div>
-        </div>
+        </AdvancedFiltersPanel>
       )}
     </>
   );

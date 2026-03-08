@@ -1,38 +1,58 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { Fragment, useCallback, useState } from "react";
 import { getReportStockSummary, type StockSummaryProduct } from "@/lib/reports";
-import { formatPrice } from "@/lib/format";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import {
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+  ReportTextInput,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import ReportSummaryCards from "@/components/reports/ReportSummaryCards";
+import {
+  ReportTable,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
+import { formatReportNumber } from "@/lib/report-format";
 
 export default function StockSummaryPage() {
-  const [data, setData] = useState<StockSummaryProduct[]>([]);
-  const [totalQuantity, setTotalQuantity] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set());
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportStockSummary({ limit: 50, search: search || undefined });
-      setData(res.data ?? []);
-      setTotalQuantity(res.totalQuantity ?? 0);
-    } catch {
-      setData([]);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadData = useCallback(async () => {
+    const res = await getReportStockSummary({ limit: 50, search: search || undefined });
+    return {
+      items: res.data ?? [],
+      totalQuantity: res.totalQuantity ?? 0,
+    };
   }, [search]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data: reportData,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<{
+    items: StockSummaryProduct[];
+    totalQuantity: number;
+  }>({
+    initialData: {
+      items: [],
+      totalQuantity: 0,
+    },
+    load: loadData,
+  });
+
+  const { items: data, totalQuantity } = reportData;
 
   const toggleProduct = (id: string) => {
     setExpandedProducts((prev) => {
@@ -53,70 +73,63 @@ export default function StockSummaryPage() {
   };
 
   const handleFilter = () => {
+    if (searchInput === search) {
+      void refresh();
+      return;
+    }
+
     setSearch(searchInput);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/reports" className="text-sm text-primary hover:underline">
-          &larr; Raporlar
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-text">Stok Ozeti</h1>
-        <p className="text-sm text-muted">Urun-varyant-magaza bazli stok durumu</p>
-      </div>
+      <ReportPageHeader
+        title="Stok Ozeti"
+        description="Urun-varyant-magaza bazli stok durumu"
+      />
 
-      {/* Filters */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-semibold text-muted">Arama</label>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFilter()}
-              placeholder="Urun adi ile ara..."
-              className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            onClick={handleFilter}
-            className="h-10 rounded-xl bg-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
-          >
-            Filtrele
-          </button>
-        </div>
-      </div>
+      <ReportFilters className="p-6 shadow-glow">
+        <ReportFilterField label="Arama" className="flex-1">
+          <ReportTextInput
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleFilter()}
+            placeholder="Urun adi ile ara..."
+            className="w-full"
+          />
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Total */}
       {!loading && !error && (
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-          <p className="text-sm text-muted">Toplam Stok Miktari</p>
-          <p className="text-2xl font-bold text-text">{totalQuantity.toLocaleString("tr-TR")}</p>
-        </div>
+        <ReportSummaryCards
+          items={[
+            { label: "Toplam Stok Miktari", value: formatReportNumber(totalQuantity, { fallback: "0" }), className: "p-6 shadow-glow" },
+          ]}
+          gridClassName="sm:grid-cols-1"
+          labelClassName="text-sm normal-case tracking-normal"
+        />
       )}
 
-      {/* Table */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        ) : error ? (
-          <p className="py-8 text-center text-sm text-red-500">{error}</p>
-        ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">Gosterilecek veri bulunamadi.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                  <th className="pb-3 pr-4" />
-                  <th className="pb-3 pr-4">Urun Adi</th>
-                  <th className="pb-3 pr-4 text-right">Toplam Miktar</th>
-                </tr>
-              </thead>
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={data.length === 0}
+        emptyMessage="Gosterilecek veri bulunamadi."
+      >
+        <ReportTableSurface padded>
+          <ReportTableScroll>
+            <ReportTable>
+              <ReportTableHead>
+                <ReportTableHeadRow>
+                  <ReportTableHeaderCell compact />
+                  <ReportTableHeaderCell compact>Urun Adi</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Toplam Miktar</ReportTableHeaderCell>
+                </ReportTableHeadRow>
+              </ReportTableHead>
               <tbody>
                 {data.map((product) => {
                   const productKey = product.productId ?? product.productName ?? "";
@@ -168,10 +181,10 @@ export default function StockSummaryPage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+            </ReportTable>
+          </ReportTableScroll>
+        </ReportTableSurface>
+      </ReportAsyncState>
     </div>
   );
 }

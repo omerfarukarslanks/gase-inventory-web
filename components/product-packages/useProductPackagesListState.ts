@@ -9,6 +9,7 @@ import {
 } from "@/lib/product-packages";
 import { useDebounceStr } from "@/hooks/useDebounce";
 import { useTablePaginationState } from "@/hooks/useTablePaginationState";
+import { buildToggleProductPackagePayload } from "@/components/product-packages/payload";
 
 export function useProductPackagesListState(canReadPage: boolean) {
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -80,15 +81,7 @@ export function useProductPackagesListState(canReadPage: boolean) {
   const onToggleActive = useCallback(async (pkg: ProductPackage, next: boolean) => {
     setTogglingIds((prev) => [...prev, pkg.id]);
     try {
-      await updateProductPackage(pkg.id, {
-        name: pkg.name,
-        code: pkg.code,
-        isActive: next,
-        items: (pkg.items ?? []).map((item) => ({
-          productVariantId: item.productVariant.id,
-          quantity: item.quantity,
-        })),
-      });
+      await updateProductPackage(pkg.id, buildToggleProductPackagePayload(pkg, next));
       await fetchPackages();
     } catch {
       setError("Paket durumu guncellenemedi. Lutfen tekrar deneyin.");

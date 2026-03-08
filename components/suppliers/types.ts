@@ -8,6 +8,11 @@ export type SupplierForm = {
   email: string;
 };
 
+export type SuppliersPageMessages = {
+  loadErrorMessage: string;
+  detailLoadErrorMessage: string;
+};
+
 export const EMPTY_FORM: SupplierForm = {
   name: "",
   surname: "",

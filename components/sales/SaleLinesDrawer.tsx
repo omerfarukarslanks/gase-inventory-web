@@ -1,10 +1,11 @@
 "use client";
 
-import Drawer from "@/components/ui/Drawer";
 import Button from "@/components/ui/Button";
-import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import Drawer from "@/components/ui/Drawer";
+import { useLang } from "@/context/LangContext";
+import type { ManagedLineEditForm, SaleLineForm } from "@/components/sales/types";
 import type { SaleDetailLine, SaleListItem } from "@/lib/sales";
-import type { SaleLineForm, ManagedLineEditForm } from "@/components/sales/types";
+import SaleLineFormFields from "@/components/sales/SaleLineFormFields";
 
 type SaleLinesDrawerProps = {
   open: boolean;
@@ -53,7 +54,17 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
 
 function EditIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
       <path d="m15 5 4 4" />
     </svg>
@@ -62,7 +73,17 @@ function EditIcon() {
 
 function TrashIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 6h18" />
       <path d="M8 6V4h8v2" />
       <path d="M19 6l-1 14H6L5 6" />
@@ -97,34 +118,53 @@ export default function SaleLinesDrawer({
   onAddLineFormChange,
   onSubmitAddLine,
 }: SaleLinesDrawerProps) {
+  const { t } = useLang();
+  const addLineSelectLabel = isWholesaleStoreType
+    ? `${t("sales.packageLabel")} *`
+    : `${t("sales.variantLabel")} *`;
+  const addLinePlaceholder = isWholesaleStoreType
+    ? t("sales.packagePlaceholder")
+    : t("sales.variantPlaceholder");
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title="Satirlari Yonet"
-      description={sale ? `Fis: ${sale.receiptNo ?? sale.id}` : ""}
+      title={t("sales.manageLines")}
+      description={
+        sale
+          ? `${t("sales.receiptLabel")}: ${sale.receiptNo ?? sale.id}`
+          : t("sales.manageLinesDescription")
+      }
       closeDisabled={lineOpSubmitting || deletingLine}
       footer={
         <div className="flex items-center justify-end gap-2">
-          <Button label="Kapat" onClick={onClose} variant="secondary" disabled={lineOpSubmitting || deletingLine} />
+          <Button
+            label={t("common.close")}
+            onClick={onClose}
+            variant="secondary"
+            disabled={lineOpSubmitting || deletingLine}
+          />
         </div>
       }
     >
       <div className="space-y-4 p-5">
         {loading ? (
-          <p className="text-sm text-muted">Satirlar yukleniyor...</p>
+          <p className="text-sm text-muted">{t("sales.linesLoading")}</p>
         ) : error ? (
           <p className="text-sm text-error">{error}</p>
         ) : (
           <>
             <div className="space-y-2">
               {managedLines.length === 0 && (
-                <p className="text-sm text-muted">Bu satisa ait satir bulunamadi.</p>
+                <p className="text-sm text-muted">{t("sales.noSaleLines")}</p>
               )}
+
               {managedLines.map((line) => {
                 const isEditing = editingLineId === line.id;
-                const lineName = line.productVariantName ?? line.productPackageName ?? line.productName ?? line.id;
+                const lineName =
+                  line.productVariantName ?? line.productPackageName ?? line.productName ?? line.id;
 
                 return (
                   <div key={line.id} className="space-y-2 rounded-xl border border-border bg-surface2/30 p-3">
@@ -132,16 +172,17 @@ export default function SaleLinesDrawer({
                       <div>
                         <p className="text-sm font-medium text-text">{lineName}</p>
                         <p className="text-xs text-muted">
-                          Adet: {line.quantity ?? "-"} · Birim: {line.unitPrice != null ? line.unitPrice : "-"} · Toplam: {line.lineTotal != null ? line.lineTotal : "-"}
+                          {t("sales.lineSummaryQuantity")}: {line.quantity ?? "-"} · {t("sales.lineSummaryUnitPrice")}: {line.unitPrice != null ? line.unitPrice : "-"} · {t("sales.lineSummaryTotal")}: {line.lineTotal != null ? line.lineTotal : "-"}
                         </p>
                       </div>
+
                       {!isEditing && (
                         <div className="flex shrink-0 items-center gap-1">
                           <button
                             type="button"
                             onClick={() => onStartEditLine(line)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-primary/10 hover:text-primary"
-                            title="Duzenle"
+                            title={t("common.edit")}
                           >
                             <EditIcon />
                           </button>
@@ -149,7 +190,7 @@ export default function SaleLinesDrawer({
                             type="button"
                             onClick={() => onRequestDeleteLine(line.id)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-error/10 hover:text-error"
-                            title="Sil"
+                            title={t("sales.deleteLine")}
                           >
                             <TrashIcon />
                           </button>
@@ -159,122 +200,20 @@ export default function SaleLinesDrawer({
 
                     {isEditing && (
                       <div className="space-y-3 border-t border-border pt-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted">Adet *</label>
-                            <input
-                              type="number"
-                              min={1}
-                              step={1}
-                              value={editLineForm.quantity}
-                              onChange={(event) => onEditLineFormChange({ quantity: event.target.value })}
-                              className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted">Birim Fiyat *</label>
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={editLineForm.unitPrice}
-                              onChange={(event) => onEditLineFormChange({ unitPrice: event.target.value })}
-                              className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                            />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted">
-                              {editLineForm.discountMode === "percent" ? "Indirim %" : "Indirim Tutari"}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onEditLineFormChange({
-                                    discountMode: editLineForm.discountMode === "percent" ? "amount" : "percent",
-                                  })
-                                }
-                                className="ml-1 text-primary hover:underline"
-                              >
-                                ({editLineForm.discountMode === "percent" ? "tutara gec" : "%'ye gec"})
-                              </button>
-                            </label>
-                            {editLineForm.discountMode === "percent" ? (
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step="0.01"
-                                value={editLineForm.discountPercent}
-                                onChange={(event) => onEditLineFormChange({ discountPercent: event.target.value })}
-                                className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                              />
-                            ) : (
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={editLineForm.discountAmount}
-                                onChange={(event) => onEditLineFormChange({ discountAmount: event.target.value })}
-                                className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                              />
-                            )}
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-muted">
-                              {editLineForm.taxMode === "percent" ? "Vergi %" : "Vergi Tutari"}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onEditLineFormChange({
-                                    taxMode: editLineForm.taxMode === "percent" ? "amount" : "percent",
-                                  })
-                                }
-                                className="ml-1 text-primary hover:underline"
-                              >
-                                ({editLineForm.taxMode === "percent" ? "tutara gec" : "%'ye gec"})
-                              </button>
-                            </label>
-                            {editLineForm.taxMode === "percent" ? (
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step="0.01"
-                                value={editLineForm.taxPercent}
-                                onChange={(event) => onEditLineFormChange({ taxPercent: event.target.value })}
-                                className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                              />
-                            ) : (
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={editLineForm.taxAmount}
-                                onChange={(event) => onEditLineFormChange({ taxAmount: event.target.value })}
-                                className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                              />
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-muted">Kampanya Kodu</label>
-                          <input
-                            type="text"
-                            value={editLineForm.campaignCode}
-                            onChange={(event) => onEditLineFormChange({ campaignCode: event.target.value })}
-                            className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                          />
-                        </div>
+                        <SaleLineFormFields
+                          form={editLineForm}
+                          onChange={(patch) => onEditLineFormChange(patch as Partial<ManagedLineEditForm>)}
+                        />
+
                         <div className="flex items-center gap-2">
                           <Button
-                            label={lineOpSubmitting ? "Kaydediliyor..." : "Kaydet"}
+                            label={lineOpSubmitting ? t("common.saving") : t("common.save")}
                             onClick={() => onSubmitEditLine(line.id)}
                             variant="primarySolid"
                             loading={lineOpSubmitting}
                           />
                           <Button
-                            label="Vazgec"
+                            label={t("sales.cancelEdit")}
                             onClick={onCancelEditLine}
                             variant="secondary"
                             disabled={lineOpSubmitting}
@@ -293,120 +232,26 @@ export default function SaleLinesDrawer({
                 onClick={onToggleAddLineExpanded}
                 className="flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-medium text-text transition-colors hover:bg-surface2/40"
               >
-                <span>Satir Ekle</span>
+                <span>{t("sales.addLine")}</span>
                 <ChevronIcon expanded={addLineExpanded} />
               </button>
+
               {addLineExpanded && (
                 <div className="space-y-3 border-t border-border px-4 pb-4 pt-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted">{isWholesaleStoreType ? "Paket *" : "Varyant *"}</label>
-                    <SearchableDropdown
-                      options={variantOptions}
-                      value={addLineForm.productVariantId}
-                      onChange={(value) => onAddLineFormChange({ productVariantId: value ?? "" })}
-                      placeholder={isWholesaleStoreType ? "Paket secin" : "Varyant secin"}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted">Adet *</label>
-                      <input
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={addLineForm.quantity}
-                        onChange={(event) => onAddLineFormChange({ quantity: event.target.value })}
-                        className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted">Birim Fiyat *</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={addLineForm.unitPrice}
-                        onChange={(event) => onAddLineFormChange({ unitPrice: event.target.value })}
-                        className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted">
-                        {addLineForm.discountMode === "percent" ? "Indirim %" : "Indirim Tutari"}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onAddLineFormChange({
-                              discountMode: addLineForm.discountMode === "percent" ? "amount" : "percent",
-                            })
-                          }
-                          className="ml-1 text-primary hover:underline"
-                        >
-                          ({addLineForm.discountMode === "percent" ? "tutara gec" : "%'ye gec"})
-                        </button>
-                      </label>
-                      {addLineForm.discountMode === "percent" ? (
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step="0.01"
-                          value={addLineForm.discountPercent}
-                          onChange={(event) => onAddLineFormChange({ discountPercent: event.target.value })}
-                          className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        />
-                      ) : (
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={addLineForm.discountAmount}
-                          onChange={(event) => onAddLineFormChange({ discountAmount: event.target.value })}
-                          className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        />
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-muted">
-                        {addLineForm.taxMode === "percent" ? "Vergi %" : "Vergi Tutari"}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onAddLineFormChange({
-                              taxMode: addLineForm.taxMode === "percent" ? "amount" : "percent",
-                            })
-                          }
-                          className="ml-1 text-primary hover:underline"
-                        >
-                          ({addLineForm.taxMode === "percent" ? "tutara gec" : "%'ye gec"})
-                        </button>
-                      </label>
-                      {addLineForm.taxMode === "percent" ? (
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step="0.01"
-                          value={addLineForm.taxPercent}
-                          onChange={(event) => onAddLineFormChange({ taxPercent: event.target.value })}
-                          className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        />
-                      ) : (
-                        <input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={addLineForm.taxAmount}
-                          onChange={(event) => onAddLineFormChange({ taxAmount: event.target.value })}
-                          className="h-9 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                        />
-                      )}
-                    </div>
-                  </div>
+                  <SaleLineFormFields
+                    form={addLineForm}
+                    onChange={(patch) => onAddLineFormChange(patch as Partial<SaleLineForm>)}
+                    selectField={{
+                      label: addLineSelectLabel,
+                      placeholder: addLinePlaceholder,
+                      value: addLineForm.productVariantId,
+                      options: variantOptions,
+                      onChange: (value) => onAddLineFormChange({ productVariantId: value }),
+                    }}
+                  />
+
                   <Button
-                    label={lineOpSubmitting ? "Ekleniyor..." : "Satiri Ekle"}
+                    label={lineOpSubmitting ? t("sales.addingLine") : t("sales.addLine")}
                     onClick={onSubmitAddLine}
                     variant="primarySolid"
                     loading={lineOpSubmitting}

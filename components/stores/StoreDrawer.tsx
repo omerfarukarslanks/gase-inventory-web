@@ -3,8 +3,10 @@
 import type { FormEvent } from "react";
 import Button from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
+import FormField from "@/components/ui/FormField";
 import InputField from "@/components/ui/InputField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import TextareaField from "@/components/ui/TextareaField";
 import { CURRENCY_OPTIONS } from "@/components/products/types";
 import { cn } from "@/lib/cn";
 import { useLang } from "@/context/LangContext";
@@ -105,8 +107,7 @@ export default function StoreDrawer({
               placeholder={t("stores.codePlaceholder")}
             />
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">{t("stores.storeType")}</label>
+            <FormField label={t("stores.storeType")}>
               <SearchableDropdown
                 options={[...storeTypeOptions]}
                 value={form.storeType}
@@ -118,10 +119,9 @@ export default function StoreDrawer({
                 toggleAriaLabel={t("stores.storeType")}
                 disabled={Boolean(editingStoreId)}
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">{t("stores.currency")}</label>
+            <FormField label={t("stores.currency")}>
               <SearchableDropdown
                 options={CURRENCY_OPTIONS}
                 value={form.currency}
@@ -133,7 +133,7 @@ export default function StoreDrawer({
                 toggleAriaLabel={t("stores.currency")}
                 disabled={Boolean(editingStoreId)}
               />
-            </div>
+            </FormField>
 
             <InputField
               label={t("stores.address")}
@@ -159,15 +159,12 @@ export default function StoreDrawer({
               placeholder={t("stores.logoPlaceholder")}
             />
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">{t("stores.description")}</label>
-              <textarea
-                value={form.description}
-                onChange={(event) => onFormChange("description", event.target.value)}
-                className="min-h-[92px] w-full rounded-xl2 border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/60"
-                placeholder={t("stores.descPlaceholder")}
-              />
-            </div>
+            <TextareaField
+              label={t("stores.description")}
+              value={form.description}
+              onChange={(value) => onFormChange("description", value)}
+              placeholder={t("stores.descPlaceholder")}
+            />
 
             {formError && <p className="text-sm text-error">{formError}</p>}
           </>

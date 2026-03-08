@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { clearFieldError } from "@/lib/form-errors";
 import {
   createProductPackage,
   getProductPackageById,
@@ -9,6 +10,11 @@ import {
 import { getProducts, getProductVariants, type Product } from "@/lib/products";
 import { toNumberOrNull } from "@/lib/format";
 import { useDebounceStr } from "@/hooks/useDebounce";
+import { useCrudFormDrawerState } from "@/hooks/useCrudFormDrawerState";
+import {
+  buildCreateProductPackagePayload,
+  buildUpdateProductPackagePayload,
+} from "@/components/product-packages/payload";
 import {
   createPackageRowId,
   EMPTY_FORM,
@@ -26,13 +32,8 @@ export function useProductPackageForm({
   canReadPage,
   onRefreshPackages,
 }: UseProductPackageFormOptions) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingIsActive, setEditingIsActive] = useState(true);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState<PackageForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [items, setItems] = useState<PackageItemRow[]>([]);
   const [variantSearchTerm, setVariantSearchTerm] = useState("");
@@ -44,6 +45,22 @@ export function useProductPackageForm({
   const [selectedVariantIds, setSelectedVariantIds] = useState<string[]>([]);
   const [addItemQuantity, setAddItemQuantity] = useState("1");
   const [addItemError, setAddItemError] = useState("");
+  const drawerState = useCrudFormDrawerState<PackageForm>(EMPTY_FORM);
+  const {
+    drawerOpen,
+    submitting,
+    loadingDetail,
+    editingId,
+    form,
+    setDrawerOpen,
+    setSubmitting,
+    setLoadingDetail,
+    setEditingId,
+    setForm,
+    openCreate,
+    closeDrawer,
+    completeSubmit,
+  } = drawerState;
 
   const debouncedVariantSearch = useDebounceStr(variantSearchTerm, 400);
 
@@ -111,21 +128,22 @@ export function useProductPackageForm({
   }, []);
 
   const onOpenDrawer = useCallback(() => {
-    setFormError("");
-    setErrors({});
-    setForm(EMPTY_FORM);
-    setItems([]);
-    setEditingId(null);
-    setEditingIsActive(true);
-    resetItemSearch();
-    setDrawerOpen(true);
-  }, [resetItemSearch]);
+    openCreate(() => {
+      setFormError("");
+      setErrors({});
+      setItems([]);
+      setEditingIsActive(true);
+      resetItemSearch();
+    });
+  }, [openCreate, resetItemSearch]);
 
   const onCloseDrawer = useCallback(() => {
-    if (submitting || loadingDetail) return;
-    setErrors({});
-    setDrawerOpen(false);
-  }, [loadingDetail, submitting]);
+    closeDrawer(() => {
+      setFormError("");
+      setErrors({});
+      resetItemSearch();
+    });
+  }, [closeDrawer, resetItemSearch]);
 
   const onEditPackage = useCallback(async (id: string) => {
     setFormError("");
@@ -158,9 +176,9 @@ export function useProductPackageForm({
   }, [resetItemSearch]);
 
   const onFormChange = useCallback((field: keyof PackageForm, value: string) => {
-    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setErrors((prev) => clearFieldError(prev, field, undefined));
     setForm((prev) => ({ ...prev, [field]: value }));
-  }, [errors]);
+  }, [setForm]);
 
   const onVariantSearchTermChange = useCallback((value: string) => {
     setVariantSearchTerm(value);
@@ -208,10 +226,10 @@ export function useProductPackageForm({
       return nextItems;
     });
 
-    if (errors.items) setErrors((prev) => ({ ...prev, items: undefined }));
+    setErrors((prev) => clearFieldError(prev, "items", undefined));
     setSelectedVariantIds([]);
     setAddItemQuantity("1");
-  }, [addItemQuantity, errors.items, items, selectedVariantIds, variantOptions]);
+  }, [addItemQuantity, items, selectedVariantIds, variantOptions]);
 
   const onRemoveItem = useCallback((rowId: string) => {
     setItems((prev) => prev.filter((item) => item.rowId !== rowId));
@@ -237,23 +255,22 @@ export function useProductPackageForm({
 
     setSubmitting(true);
     try {
-      const payload = {
-        name: form.name.trim(),
-        code: form.code.trim(),
-        description: form.description.trim() || undefined,
-        items: items.map((item) => ({
-          productVariantId: item.productVariantId,
-          quantity: toNumberOrNull(item.quantity) ?? 1,
-        })),
-      };
-
       if (editingId) {
-        await updateProductPackage(editingId, { ...payload, isActive: editingIsActive });
+        await updateProductPackage(
+          editingId,
+          buildUpdateProductPackagePayload(form, items, editingIsActive),
+        );
       } else {
-        await createProductPackage(payload);
+        await createProductPackage(buildCreateProductPackagePayload(form, items));
       }
 
-      setDrawerOpen(false);
+      completeSubmit(() => {
+        setFormError("");
+        setErrors({});
+        setItems([]);
+        setEditingIsActive(true);
+        resetItemSearch();
+      });
       await onRefreshPackages();
     } catch {
       setFormError(
@@ -264,7 +281,16 @@ export function useProductPackageForm({
     } finally {
       setSubmitting(false);
     }
-  }, [editingId, editingIsActive, form.code, form.description, form.name, items, onRefreshPackages, validate]);
+  }, [
+    completeSubmit,
+    editingId,
+    editingIsActive,
+    form,
+    items,
+    onRefreshPackages,
+    resetItemSearch,
+    validate,
+  ]);
 
   return {
     drawerOpen,

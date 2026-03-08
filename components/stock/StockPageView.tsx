@@ -8,6 +8,8 @@ import AdjustDrawer from "@/components/stock/AdjustDrawer";
 import TransferDrawer from "@/components/stock/TransferDrawer";
 import ReceiveDrawer from "@/components/stock/ReceiveDrawer";
 import ProductInventoryDrawer from "@/components/stock/ProductInventoryDrawer";
+import StatusBanner from "@/components/ui/StatusBanner";
+import TableFooterPagination from "@/components/ui/TableFooterPagination";
 
 type StockPageViewProps = {
   success: string;
@@ -35,14 +37,14 @@ export default function StockPageView({
       <StockFilters {...filtersProps} />
 
       {success && (
-        <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+        <StatusBanner tone="success">
           {success}
-        </div>
+        </StatusBanner>
       )}
 
       <StockTable
         {...tableProps}
-        footer={paginationProps ? <TablePagination {...paginationProps} /> : null}
+        footer={<TableFooterPagination paginationProps={paginationProps} />}
       />
 
       <AdjustDrawer {...adjustDrawerProps} />

@@ -5,6 +5,7 @@ import TablePagination from "@/components/ui/TablePagination";
 import ProductPackageFilters from "@/components/product-packages/ProductPackageFilters";
 import ProductPackageTable from "@/components/product-packages/ProductPackageTable";
 import ProductPackageDrawer from "@/components/product-packages/ProductPackageDrawer";
+import TableFooterPagination from "@/components/ui/TableFooterPagination";
 
 type ProductPackagesPageViewProps = {
   filtersProps: ComponentProps<typeof ProductPackageFilters>;
@@ -24,7 +25,7 @@ export default function ProductPackagesPageView({
       <ProductPackageFilters {...filtersProps} />
       <ProductPackageTable
         {...tableProps}
-        footer={paginationProps ? <TablePagination {...paginationProps} /> : null}
+        footer={<TableFooterPagination paginationProps={paginationProps} />}
       />
       <ProductPackageDrawer {...drawerProps} />
     </div>

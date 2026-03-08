@@ -1,123 +1,135 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import {
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+  ReportNumberInput,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import {
+  ReportTable,
+  ReportTableBody,
+  ReportTableCell,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
+import ReportBadge from "@/components/reports/ReportBadge";
 import { getReportLowStock, type LowStockItem } from "@/lib/reports";
 
 export default function LowStockPage() {
-  const [data, setData] = useState<LowStockItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [thresholdInput, setThresholdInput] = useState("50");
   const [threshold, setThreshold] = useState(50);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportLowStock({ threshold, limit: 50 });
-      setData(res.data ?? []);
-    } catch {
-      setData([]);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadItems = useCallback(async () => {
+    const res = await getReportLowStock({ threshold, limit: 50 });
+    return res.data ?? [];
   }, [threshold]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<LowStockItem[]>({
+    initialData: [],
+    load: loadItems,
+  });
 
   const handleFilter = () => {
-    const parsed = parseInt(thresholdInput, 10);
-    if (!isNaN(parsed) && parsed > 0) {
-      setThreshold(parsed);
+    const parsed = Number.parseInt(thresholdInput, 10);
+    const nextThreshold = Number.isNaN(parsed) || parsed <= 0 ? threshold : parsed;
+
+    if (nextThreshold === threshold) {
+      void refresh();
+      return;
     }
+
+    setThreshold(nextThreshold);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/reports" className="text-sm text-primary hover:underline">
-          &larr; Raporlar
-        </Link>
-        <h1 className="mt-2 text-xl font-semibold text-text">Dusuk Stok</h1>
-        <p className="text-sm text-muted">Esik degerinin altindaki stoklar</p>
-      </div>
+      <ReportPageHeader
+        title="Dusuk Stok"
+        description="Esik degerinin altindaki stoklar"
+      />
 
-      {/* Filters */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">Esik Degeri</label>
-            <input
-              type="number"
-              value={thresholdInput}
-              onChange={(e) => setThresholdInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleFilter()}
-              min={1}
-              className="h-10 w-32 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
-          </div>
-          <button
-            onClick={handleFilter}
-            className="h-10 rounded-xl bg-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-primary/90"
-          >
-            Filtrele
-          </button>
-        </div>
-      </div>
+      <ReportFilters className="p-6 shadow-glow">
+        <ReportFilterField label="Esik Degeri">
+          <ReportNumberInput
+            value={thresholdInput}
+            onChange={(e) => setThresholdInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleFilter()}
+            min={1}
+            className="w-32"
+          />
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Table */}
-      <div className="rounded-2xl border border-border bg-surface p-6 shadow-glow">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          </div>
-        ) : error ? (
-          <p className="py-8 text-center text-sm text-red-500">{error}</p>
-        ) : data.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">Gosterilecek veri bulunamadi.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
-                  <th className="pb-3 pr-4">Urun</th>
-                  <th className="pb-3 pr-4">Varyant</th>
-                  <th className="pb-3 pr-4">Kod</th>
-                  <th className="pb-3 pr-4">Magaza</th>
-                  <th className="pb-3 pr-4 text-right">Miktar</th>
-                  <th className="pb-3 pr-4">Durum</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((item, i) => (
-                  <tr key={`${item.productVariantId}-${item.storeId}-${i}`} className="border-b border-border/50 transition-colors hover:bg-primary/5">
-                    <td className="py-3 pr-4 font-medium text-text">{item.productName ?? "-"}</td>
-                    <td className="py-3 pr-4 text-text">{item.variantName ?? "-"}</td>
-                    <td className="py-3 pr-4 text-muted">{item.variantCode ?? "-"}</td>
-                    <td className="py-3 pr-4 text-text">{item.storeName ?? "-"}</td>
-                    <td className="py-3 pr-4 text-right font-medium text-text">{item.quantity ?? 0}</td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          item.isActive
-                            ? "bg-green-500/10 text-green-500"
-                            : "bg-red-500/10 text-red-500"
-                        }`}
-                      >
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={data.length === 0}
+        emptyMessage="Gosterilecek veri bulunamadi."
+      >
+        <ReportTableSurface padded>
+          <ReportTableScroll>
+            <ReportTable>
+              <ReportTableHead>
+                <ReportTableHeadRow>
+                  <ReportTableHeaderCell compact>Urun</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Varyant</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Kod</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Magaza</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact align="right">Miktar</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Durum</ReportTableHeaderCell>
+                </ReportTableHeadRow>
+              </ReportTableHead>
+              <ReportTableBody>
+                {data.map((item, index) => (
+                  <ReportTableRow
+                    key={`${item.productVariantId}-${item.storeId}-${index}`}
+                    className="border-b border-border/50 transition-colors hover:bg-primary/5"
+                  >
+                    <ReportTableCell compact className="font-medium text-text">
+                      {item.productName ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact className="text-text">
+                      {item.variantName ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact className="text-muted">
+                      {item.variantCode ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact className="text-text">
+                      {item.storeName ?? "-"}
+                    </ReportTableCell>
+                    <ReportTableCell compact align="right" className="font-medium text-text">
+                      {item.quantity ?? 0}
+                    </ReportTableCell>
+                    <ReportTableCell compact>
+                      <ReportBadge tone={item.isActive ? "success" : "danger"}>
                         {item.isActive ? "Aktif" : "Pasif"}
-                      </span>
-                    </td>
-                  </tr>
+                      </ReportBadge>
+                    </ReportTableCell>
+                  </ReportTableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </ReportTableBody>
+            </ReportTable>
+          </ReportTableScroll>
+        </ReportTableSurface>
+      </ReportAsyncState>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { type FormEvent, useCallback, useMemo, useState } from "react";
+import { useLang } from "@/context/LangContext";
+import { clearFieldError, clearStringError } from "@/lib/form-errors";
 import {
   createProduct,
   createProductVariant,
@@ -9,7 +11,6 @@ import {
   updateProduct,
   updateProductVariant,
 } from "@/lib/products";
-import { toNumberOrNull } from "@/lib/format";
 import {
   EMPTY_PRODUCT_FORM,
   type FormErrors,
@@ -18,15 +19,33 @@ import {
   type VariantErrors,
   type VariantForm,
   type VariantSnapshot,
-  areVariantAttributesEqual,
-  createVariantClientKey,
 } from "@/components/products/types";
+import {
+  addEmptyAttributeToVariant,
+  buildProductPayload,
+  calculateProductLineTotal,
+  clearProductFormErrorsOnFieldChange,
+  clearVariantErrorAtIndex,
+  createInitialVariantForms,
+  getExpandedVariantKeys,
+  isProductFormChanged,
+  mapProductDetailToForm,
+  prepareProductVariants,
+  removeVariantAttributeAt,
+  removeVariantErrorAtIndex,
+  splitPreparedProductVariantsForUpdate,
+  updateVariantAttributeAt,
+  validateProductStep1,
+  validateProductVariants,
+} from "@/components/products/form";
 
 type UseProductDrawerFormOptions = {
   canTenantOnly: boolean;
   variantStatusFilter: IsActiveFilter;
   onRefreshProducts: () => Promise<void>;
   onRefreshTableVariants: (productId: string, status?: IsActiveFilter) => Promise<void>;
+  onSuccess: (message: string) => void;
+  clearFeedback?: () => void;
 };
 
 export function useProductDrawerForm({
@@ -34,7 +53,10 @@ export function useProductDrawerForm({
   variantStatusFilter,
   onRefreshProducts,
   onRefreshTableVariants,
+  onSuccess,
+  clearFeedback,
 }: UseProductDrawerFormOptions) {
+  const { t } = useLang();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -52,37 +74,15 @@ export function useProductDrawerForm({
   const [step1ProductInfoOpen, setStep1ProductInfoOpen] = useState(false);
   const [step1StoreScopeOpen, setStep1StoreScopeOpen] = useState(true);
 
-  const calculatedLineTotal = useMemo(() => {
-    const unitPrice = toNumberOrNull(form.unitPrice);
-    if (unitPrice == null || unitPrice < 0) return null;
-
-    const taxValue =
-      form.taxMode === "percent"
-        ? unitPrice * ((toNumberOrNull(form.taxPercent) ?? 0) / 100)
-        : (toNumberOrNull(form.taxAmount) ?? 0);
-    const subtotalWithTax = unitPrice + taxValue;
-    const discountValue =
-      form.discountMode === "percent"
-        ? subtotalWithTax * ((toNumberOrNull(form.discountPercent) ?? 0) / 100)
-        : (toNumberOrNull(form.discountAmount) ?? 0);
-
-    return subtotalWithTax - discountValue;
-  }, [
-    form.unitPrice,
-    form.taxMode,
-    form.taxPercent,
-    form.taxAmount,
-    form.discountMode,
-    form.discountPercent,
-    form.discountAmount,
-  ]);
+  const calculatedLineTotal = useMemo(() => calculateProductLineTotal(form), [form]);
 
   const onOpenDrawer = useCallback(() => {
+    clearFeedback?.();
     setForm(EMPTY_PRODUCT_FORM);
     setVariants([]);
     setErrors({});
     setVariantErrors({});
-    setFormError("");
+    clearStringError(formError, setFormError);
     setEditingProductId(null);
     setCreatedProductId(null);
     setExpandedVariantKeys([]);
@@ -91,7 +91,7 @@ export function useProductDrawerForm({
     setStep1ProductInfoOpen(false);
     setStep1StoreScopeOpen(true);
     setDrawerOpen(true);
-  }, []);
+  }, [clearFeedback, formError]);
 
   const onCloseDrawer = useCallback(() => {
     if (submitting || loadingDetail) return;
@@ -99,21 +99,7 @@ export function useProductDrawerForm({
   }, [loadingDetail, submitting]);
 
   const onFormChange = useCallback((field: keyof ProductForm, value: string) => {
-    setErrors((prev) => {
-      const next = { ...prev };
-      if (next[field]) next[field] = undefined;
-      if (
-        (field === "unitPrice" ||
-          field === "taxPercent" ||
-          field === "taxAmount" ||
-          field === "discountPercent" ||
-          field === "discountAmount") &&
-        next.lineTotal
-      ) {
-        next.lineTotal = undefined;
-      }
-      return next;
-    });
+    setErrors((prev) => clearProductFormErrorsOnFieldChange(prev, field));
     setForm((prev) => ({ ...prev, [field]: value }));
   }, []);
 
@@ -122,11 +108,12 @@ export function useProductDrawerForm({
   }, []);
 
   const onClearError = useCallback((field: keyof FormErrors) => {
-    setErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+    setErrors((prev) => clearFieldError(prev, field, undefined));
   }, []);
 
   const onEditProduct = useCallback(async (id: string) => {
-    setFormError("");
+    clearFeedback?.();
+    clearStringError(formError, setFormError);
     setErrors({});
     setVariantErrors({});
     setOriginalVariantMap({});
@@ -135,26 +122,7 @@ export function useProductDrawerForm({
 
     try {
       const detail = await getProductById(id);
-      const formData: ProductForm = {
-        currency: detail.currency ?? "TRY",
-        purchasePrice: detail.purchasePrice != null ? String(detail.purchasePrice) : "",
-        unitPrice: detail.unitPrice != null ? String(detail.unitPrice) : "",
-        discountMode:
-          detail.discountAmount != null && String(detail.discountAmount) !== "" ? "amount" : "percent",
-        discountPercent: detail.discountPercent != null ? String(detail.discountPercent) : "",
-        discountAmount: detail.discountAmount != null ? String(detail.discountAmount) : "",
-        taxMode: detail.taxAmount != null && String(detail.taxAmount) !== "" ? "amount" : "percent",
-        taxPercent: detail.taxPercent != null ? String(detail.taxPercent) : "",
-        taxAmount: detail.taxAmount != null ? String(detail.taxAmount) : "",
-        name: detail.name ?? "",
-        sku: detail.sku ?? "",
-        description: detail.description ?? "",
-        image: detail.image ?? "",
-        storeIds: detail.storeIds ?? [],
-        applyToAllStores: Boolean(detail.applyToAllStores),
-        categoryId: detail.categoryId ?? detail.category?.id ?? "",
-        supplierId: detail.supplierId ?? detail.supplier?.id ?? "",
-      };
+      const formData = mapProductDetailToForm(detail);
 
       setForm(formData);
       setOriginalForm(formData);
@@ -164,104 +132,27 @@ export function useProductDrawerForm({
       setEditingProductId(detail.id);
       setDrawerOpen(true);
     } catch {
-      setFormError("Urun detayi yuklenemedi. Lutfen tekrar deneyin.");
+      setFormError(t("products.detailLoadError"));
     } finally {
       setLoadingDetail(false);
     }
-  }, []);
+  }, [clearFeedback, formError, t]);
 
   const validateStep1 = useCallback((): boolean => {
-    const nextErrors: FormErrors = {};
-
-    if (!form.name.trim()) nextErrors.name = "Urun adi zorunludur.";
-    if (!form.sku.trim()) nextErrors.sku = "SKU zorunludur.";
-
-    if (!form.unitPrice || Number.isNaN(Number(form.unitPrice)) || Number(form.unitPrice) < 0) {
-      nextErrors.unitPrice = "Gecerli bir satis fiyati girin.";
-    }
-
-    if (!form.purchasePrice || Number.isNaN(Number(form.purchasePrice)) || Number(form.purchasePrice) < 0) {
-      nextErrors.purchasePrice = "Gecerli bir alis fiyati girin.";
-    }
-
-    if (form.taxMode === "percent") {
-      if (form.taxPercent && Number.isNaN(Number(form.taxPercent))) {
-        nextErrors.taxPercent = "Gecerli bir vergi orani girin.";
-      } else if (form.taxPercent) {
-        const tax = Number(form.taxPercent);
-        if (tax < 0 || tax > 100) nextErrors.taxPercent = "Vergi orani 0-100 arasi olmalidir.";
-      }
-    } else if (form.taxAmount && Number.isNaN(Number(form.taxAmount))) {
-      nextErrors.taxAmount = "Gecerli bir vergi tutari girin.";
-    }
-
-    if (form.discountMode === "percent") {
-      if (form.discountPercent && Number.isNaN(Number(form.discountPercent))) {
-        nextErrors.discountPercent = "Gecerli bir indirim orani girin.";
-      } else if (form.discountPercent) {
-        const discount = Number(form.discountPercent);
-        if (discount < 0 || discount > 100) {
-          nextErrors.discountPercent = "Indirim orani 0-100 arasi olmalidir.";
-        }
-      }
-    } else if (form.discountAmount && Number.isNaN(Number(form.discountAmount))) {
-      nextErrors.discountAmount = "Gecerli bir indirim tutari girin.";
-    }
-
-    if (calculatedLineTotal == null || Number.isNaN(calculatedLineTotal) || calculatedLineTotal < 0) {
-      nextErrors.lineTotal = "Gecerli bir satir toplami girin.";
-    }
-
-    if (canTenantOnly && !form.applyToAllStores && form.storeIds.length === 0) {
-      nextErrors.storeIds = "En az bir magaza secin veya tum magazalara uygulayin.";
-    }
-
+    const nextErrors = validateProductStep1(form, { calculatedLineTotal, canTenantOnly, t });
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
-  }, [calculatedLineTotal, canTenantOnly, form]);
+  }, [calculatedLineTotal, canTenantOnly, form, t]);
 
   const validateVariants = useCallback((): boolean => {
-    if (variants.length === 0) {
-      setFormError("En az bir ozellik eklemelisiniz.");
-      return false;
-    }
-
-    const nextErrors: Record<number, VariantErrors> = {};
-    let hasAtLeastOneValidAttribute = false;
-
-    variants.forEach((variant, index) => {
-      const variantError: VariantErrors = {};
-      const hasEmptyAttr = variant.attributes.some((attribute) => attribute.id && attribute.values.length === 0);
-      const hasEmptyKey = variant.attributes.some((attribute) => !attribute.id && attribute.values.length > 0);
-      const validAttributeCount = variant.attributes.filter((attribute) => attribute.id && attribute.values.length > 0).length;
-
-      if (validAttributeCount > 0) hasAtLeastOneValidAttribute = true;
-
-      if (hasEmptyAttr || hasEmptyKey) {
-        variantError.attributes = "Tum ozellik alanlari doldurulmalidir.";
-      } else if (validAttributeCount === 0) {
-        variantError.attributes = "En az bir ozellik secmelisiniz.";
-      }
-
-      if (Object.keys(variantError).length > 0) nextErrors[index] = variantError;
-    });
-
-    setFormError(hasAtLeastOneValidAttribute ? "" : "En az bir ozellik eklemelisiniz.");
-    setVariantErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0 && hasAtLeastOneValidAttribute;
-  }, [variants]);
+    const result = validateProductVariants(variants, t);
+    setFormError(result.formError);
+    setVariantErrors(result.variantErrors);
+    return result.isValid;
+  }, [t, variants]);
 
   const isFormChanged = useCallback((): boolean => {
-    const simpleKeys = Object.keys(originalForm) as (keyof ProductForm)[];
-    return simpleKeys.some((key) => {
-      if (key === "storeIds") {
-        const left = originalForm.storeIds;
-        const right = form.storeIds;
-        if (left.length !== right.length) return true;
-        return left.some((id, index) => id !== right[index]);
-      }
-      return form[key] !== originalForm[key];
-    });
+    return isProductFormChanged(originalForm, form);
   }, [form, originalForm]);
 
   const fetchVariants = useCallback(async (productId: string) => {
@@ -274,77 +165,26 @@ export function useProductDrawerForm({
           .map((value) => value.id),
       }));
 
-      const clientKey = createVariantClientKey();
       setOriginalVariantMap({});
-      setVariants([
-        {
-          clientKey,
-          id: undefined,
-          isActive: true,
-          attributes: productAttributes.length > 0 ? productAttributes : [{ id: "", values: [] }],
-        },
-      ]);
-      setExpandedVariantKeys([clientKey]);
+      const seededVariants = createInitialVariantForms(productAttributes);
+      setVariants(seededVariants);
+      setExpandedVariantKeys(getExpandedVariantKeys(seededVariants));
     } catch {
-      const clientKey = createVariantClientKey();
       setOriginalVariantMap({});
-      setVariants([
-        {
-          clientKey,
-          id: undefined,
-          isActive: true,
-          attributes: [{ id: "", values: [] }],
-        },
-      ]);
-      setExpandedVariantKeys([clientKey]);
+      const seededVariants = createInitialVariantForms();
+      setVariants(seededVariants);
+      setExpandedVariantKeys(getExpandedVariantKeys(seededVariants));
     }
   }, []);
-
-  const buildPricingPayload = useCallback(() => ({
-    currency: form.currency,
-    unitPrice: Number(form.unitPrice),
-    purchasePrice: Number(form.purchasePrice),
-    ...(form.taxMode === "percent"
-      ? form.taxPercent
-        ? { taxPercent: Number(form.taxPercent) }
-        : {}
-      : form.taxAmount
-        ? { taxAmount: Number(form.taxAmount) }
-        : {}),
-    ...(form.discountMode === "percent"
-      ? form.discountPercent
-        ? { discountPercent: Number(form.discountPercent) }
-        : {}
-      : form.discountAmount
-        ? { discountAmount: Number(form.discountAmount) }
-        : {}),
-  }), [form]);
-
-  const buildScopePayload = useCallback(() => (
-    canTenantOnly
-      ? { storeIds: [], applyToAllStores: false }
-      : form.applyToAllStores
-        ? { storeIds: [], applyToAllStores: true }
-        : { storeIds: form.storeIds, applyToAllStores: false }
-  ), [canTenantOnly, form.applyToAllStores, form.storeIds]);
 
   const goToStep2 = useCallback(async () => {
     if (!validateStep1()) return;
 
     setSubmitting(true);
-    setFormError("");
+    clearStringError(formError, setFormError);
 
     try {
-      const productPayload = {
-        name: form.name.trim(),
-        sku: form.sku.trim(),
-        description: form.description.trim() || undefined,
-        image: form.image.trim() || undefined,
-        categoryId: form.categoryId || undefined,
-        supplierId: form.supplierId || undefined,
-        ...buildPricingPayload(),
-        ...buildScopePayload(),
-      };
+      const productPayload = buildProductPayload(form, canTenantOnly);
 
       if (editingProductId) {
         if (isFormChanged()) {
@@ -359,26 +199,18 @@ export function useProductDrawerForm({
         setStep(2);
       }
     } catch {
-      setFormError(
-        editingProductId
-          ? "Urun guncellenemedi. Lutfen tekrar deneyin."
-          : "Urun olusturulamadi. Lutfen tekrar deneyin.",
-      );
+      setFormError(editingProductId ? t("products.updateError") : t("products.createError"));
     } finally {
       setSubmitting(false);
     }
   }, [
-    buildPricingPayload,
-    buildScopePayload,
+    canTenantOnly,
     editingProductId,
     fetchVariants,
-    form.categoryId,
-    form.description,
-    form.image,
-    form.name,
-    form.sku,
-    form.supplierId,
+    formError,
+    form,
     isFormChanged,
+    t,
     validateStep1,
   ]);
 
@@ -408,42 +240,24 @@ export function useProductDrawerForm({
 
     if (!validateVariants()) return;
 
-    const preparedVariants = variants
-      .filter((variant) => variant.attributes.some((attribute) => attribute.id && attribute.values.length > 0))
-      .map((variant) => ({
-        id: variant.id,
-        isActive: variant.isActive ?? true,
-        payload: {
-          attributes: variant.attributes.filter((attribute) => attribute.id && attribute.values.length > 0),
-        },
-      }));
+    const preparedVariants = prepareProductVariants(variants);
 
     const targetProductId = editingProductId ?? createdProductId;
+    const successMessage = editingProductId ? t("products.updateSuccess") : t("products.createSuccess");
 
     if (preparedVariants.length === 0) {
       await closeAndReset();
+      onSuccess(successMessage);
       return;
     }
 
     setSubmitting(true);
-    setFormError("");
+    clearStringError(formError, setFormError);
 
     try {
       if (editingProductId) {
-        const variantsToUpdate = preparedVariants.filter((variant) => {
-          if (!variant.id) return false;
-          const original = originalVariantMap[variant.id];
-          if (!original) return true;
-          return (
-            original.isActive !== variant.isActive ||
-            !areVariantAttributesEqual(original.payload.attributes, variant.payload.attributes)
-          );
-        });
-        const variantsToCreate = preparedVariants
-          .filter((variant) => !variant.id)
-          .map((variant) => variant.payload);
-
-        const hasChanges = variantsToUpdate.length > 0 || variantsToCreate.length > 0;
+        const { variantsToUpdate, variantsToCreate, hasChanges } =
+          splitPreparedProductVariantsForUpdate(preparedVariants, originalVariantMap);
 
         if (hasChanges) {
           if (variantsToUpdate.length > 0) {
@@ -472,8 +286,9 @@ export function useProductDrawerForm({
       }
 
       await closeAndReset();
+      onSuccess(successMessage);
     } catch {
-      setFormError("Varyantlar olusturulamadi. Lutfen tekrar deneyin.");
+      setFormError(t("products.variantsCreateError"));
     } finally {
       setSubmitting(false);
     }
@@ -481,10 +296,13 @@ export function useProductDrawerForm({
     closeAndReset,
     createdProductId,
     editingProductId,
+    formError,
     goToStep2,
+    onSuccess,
     onRefreshTableVariants,
     originalVariantMap,
     step,
+    t,
     validateVariants,
     variantStatusFilter,
     variants,
@@ -496,11 +314,7 @@ export function useProductDrawerForm({
     if (removedKey) {
       setExpandedVariantKeys((prev) => prev.filter((key) => key !== removedKey));
     }
-    setVariantErrors((prev) => {
-      const next = { ...prev };
-      delete next[index];
-      return next;
-    });
+    setVariantErrors((prev) => removeVariantErrorAtIndex(prev, index));
   }, [variants]);
 
   const toggleVariantPanel = useCallback((clientKey: string) => {
@@ -512,46 +326,19 @@ export function useProductDrawerForm({
   }, []);
 
   const addAttribute = useCallback((variantIndex: number) => {
-    setVariants((prev) =>
-      prev.map((variant, index) => (
-        index === variantIndex
-          ? { ...variant, attributes: [...variant.attributes, { id: "", values: [] }] }
-          : variant
-      )),
-    );
+    setVariantErrors((prev) => clearVariantErrorAtIndex(prev, variantIndex));
+    setVariants((prev) => addEmptyAttributeToVariant(prev, variantIndex));
   }, []);
 
   const removeAttribute = useCallback((variantIndex: number, attrIndex: number) => {
-    setVariants((prev) =>
-      prev.map((variant, index) => (
-        index === variantIndex
-          ? {
-              ...variant,
-              attributes: variant.attributes.filter((_, attributeIndex) => attributeIndex !== attrIndex),
-            }
-          : variant
-      )),
-    );
+    setVariantErrors((prev) => clearVariantErrorAtIndex(prev, variantIndex));
+    setVariants((prev) => removeVariantAttributeAt(prev, variantIndex, attrIndex));
   }, []);
 
   const updateVariantAttribute = useCallback(
     (variantIndex: number, attrIndex: number, field: "id" | "values", value: string | string[]) => {
-      setVariants((prev) =>
-        prev.map((variant, index) =>
-          index === variantIndex
-            ? {
-                ...variant,
-                attributes: variant.attributes.map((attribute, attributeIndex) => {
-                  if (attributeIndex !== attrIndex) return attribute;
-                  if (field === "id") {
-                    return { id: String(value), values: [] };
-                  }
-                  return { ...attribute, values: Array.isArray(value) ? value : [] };
-                }),
-              }
-            : variant,
-        ),
-      );
+      setVariantErrors((prev) => clearVariantErrorAtIndex(prev, variantIndex));
+      setVariants((prev) => updateVariantAttributeAt(prev, variantIndex, attrIndex, field, value));
     },
     [],
   );

@@ -1,9 +1,11 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import FilterField from "@/components/ui/FilterField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchInput from "@/components/ui/SearchInput";
-import { STATUS_FILTER_OPTIONS, parseIsActiveFilter } from "@/components/products/types";
+import { getStatusFilterOptions, parseIsActiveFilter } from "@/components/products/types";
+import { AdvancedFiltersPanel, FilterActionsRow, PageToolbar } from "@/components/ui/PageToolbar";
 import { useLang } from "@/context/LangContext";
 
 type ProductCategoryFiltersProps = {
@@ -30,53 +32,53 @@ export default function ProductCategoryFilters({
   onClearFilters,
 }: ProductCategoryFiltersProps) {
   const { t } = useLang();
+  const statusOptions = getStatusFilterOptions(t);
 
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-text">{t("productCategories.title")}</h1>
-          <p className="text-sm text-muted">{t("productCategories.title")}</p>
-        </div>
-        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-          <SearchInput
-            value={searchTerm}
-            onChange={onSearchTermChange}
-            placeholder="Ara..."
-            containerClassName="w-full lg:w-64"
-          />
-          <Button
-            label={showAdvancedFilters ? t("common.hideFilter") : t("common.filter")}
-            onClick={onToggleAdvancedFilters}
-            variant="secondary"
-            className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
-          />
-          {canCreate && (
+      <PageToolbar
+        title={t("productCategories.title")}
+        description={t("productCategories.subtitle")}
+        actions={
+          <FilterActionsRow className="w-full lg:w-auto">
+            <SearchInput
+              value={searchTerm}
+              onChange={onSearchTermChange}
+              placeholder={t("common.search")}
+              containerClassName="w-full lg:w-64"
+            />
             <Button
-              label={t("productCategories.new")}
-              onClick={onCreate}
-              variant="primarySoft"
+              label={showAdvancedFilters ? t("common.hideFilter") : t("common.filter")}
+              onClick={onToggleAdvancedFilters}
+              variant="secondary"
               className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
             />
-          )}
-        </div>
-      </div>
+            {canCreate && (
+              <Button
+                label={t("productCategories.new")}
+                onClick={onCreate}
+                variant="primarySoft"
+                className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
+              />
+            )}
+          </FilterActionsRow>
+        }
+      />
 
       {showAdvancedFilters && (
-        <div className="grid gap-3 rounded-xl2 border border-border bg-surface p-3 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">{t("common.status")}</label>
+        <AdvancedFiltersPanel className="md:grid-cols-2 lg:grid-cols-3">
+          <FilterField label={t("common.status")}>
             <SearchableDropdown
-              options={STATUS_FILTER_OPTIONS}
+              options={statusOptions}
               value={statusFilter === "all" ? "all" : String(statusFilter)}
               onChange={(value) => onStatusFilterChange(parseIsActiveFilter(value))}
               placeholder={t("common.allStatuses")}
               showEmptyOption={false}
               allowClear={false}
-              inputAriaLabel="Kategori durum filtresi"
-              toggleAriaLabel="Kategori durum listesini ac"
+              inputAriaLabel={t("common.status")}
+              toggleAriaLabel={t("common.status")}
             />
-          </div>
+          </FilterField>
           <div className="md:col-span-2 lg:col-span-3">
             <Button
               label={t("common.clearFilters")}
@@ -85,7 +87,7 @@ export default function ProductCategoryFilters({
               className="w-full sm:w-auto"
             />
           </div>
-        </div>
+        </AdvancedFiltersPanel>
       )}
     </>
   );

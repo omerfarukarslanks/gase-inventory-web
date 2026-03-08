@@ -11,6 +11,7 @@ import ProductsPageView from "@/components/products/ProductsPageView";
 import { useProductMetadata } from "@/components/products/useProductMetadata";
 import { useProductsListState } from "@/components/products/useProductsListState";
 import { useProductDrawerForm } from "@/components/products/useProductDrawerForm";
+import { useStatusFeedback } from "@/hooks/useStatusFeedback";
 
 export default function ProductsPageClient() {
   const { can } = usePermissions();
@@ -21,11 +22,13 @@ export default function ProductsPageClient() {
   const allStores = useStores();
   const stores = canTenantOnly ? allStores : [];
   const isMobile = !useMediaQuery();
+  const feedback = useStatusFeedback({ errorDurationMs: 4500 });
 
   const listState = useProductsListState({
     canReadPage,
     scopeReady,
     loadErrorMessage: t("products.loadError"),
+    onActionError: feedback.showError,
   });
 
   const { attributeDefinitions, categoryOptions } = useProductMetadata({ canReadPage });
@@ -35,6 +38,8 @@ export default function ProductsPageClient() {
     variantStatusFilter: listState.variantStatusFilter,
     onRefreshProducts: listState.fetchProducts,
     onRefreshTableVariants: listState.fetchTableVariants,
+    onSuccess: feedback.showSuccess,
+    clearFeedback: feedback.clearAll,
   });
 
   const storeOptions = useMemo(
@@ -46,6 +51,8 @@ export default function ProductsPageClient() {
 
   return (
     <ProductsPageView
+      success={feedback.success}
+      actionError={feedback.error}
       filtersProps={{
         searchTerm: listState.searchTerm,
         onSearchChange: (value) => listState.setSearchTerm(value),
@@ -148,7 +155,8 @@ export default function ProductsPageClient() {
         showStoreScopeControls: !canTenantOnly,
         fixedStoreId: canTenantOnly ? scopedStoreId : undefined,
         onClose: listState.closePriceDrawer,
-        onSuccess: () => {
+        onSuccess: (message) => {
+          feedback.showSuccess(message);
           if (listState.priceTarget?.mode === "product") {
             void listState.fetchProducts();
             if (

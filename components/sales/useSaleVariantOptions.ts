@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLang } from "@/context/LangContext";
 import { getTenantStockSummary } from "@/lib/inventory";
 import { getPaginationValue, normalizeProducts } from "@/lib/normalize";
 import { getProductPackages } from "@/lib/product-packages";
@@ -69,6 +70,7 @@ export function useSaleVariantOptions({
   isWholesaleStoreType,
   variantNoInfoLabel,
 }: UseSaleVariantOptionsOptions) {
+  const { t } = useLang();
   const [variantOptions, setVariantOptions] = useState<VariantOption[]>([]);
   const [variantPresetsById, setVariantPresetsById] = useState<Record<string, VariantPreset>>({});
   const [loadingVariants, setLoadingVariants] = useState(true);
@@ -100,10 +102,10 @@ export function useSaleVariantOptions({
         packages.forEach((pkg) => {
           const stockInfo = (pkg.items ?? [])
             .map((item) => {
-              const variantName = item.productVariant?.name ?? "Varyant";
+              const variantName = item.productVariant?.name ?? t("sales.variantLabel");
               const variantCode = item.productVariant?.code ?? "-";
               const stockText = resolvePackageItemStockText(item);
-              return `${variantName} (${variantCode}) Stok: ${stockText}`;
+              return `${variantName} (${variantCode}) ${t("stock.totalStock")}: ${stockText}`;
             })
             .join(" • ");
 
@@ -152,7 +154,7 @@ export function useSaleVariantOptions({
         (product.variants ?? []).map((variant) => ({
           value: variant.productVariantId,
           label: product.productName,
-          secondaryLabel: `${variant.variantName} | Stok: ${variant.totalQuantity}`,
+          secondaryLabel: `${variant.variantName} | ${t("stock.totalStock")}: ${variant.totalQuantity}`,
         })),
       );
 
@@ -218,7 +220,7 @@ export function useSaleVariantOptions({
       setLoadingVariants(false);
       setLoadingMoreVariants(false);
     }
-  }, [canReadPage, isWholesaleStoreType, variantNoInfoLabel]);
+  }, [canReadPage, isWholesaleStoreType, t, variantNoInfoLabel]);
 
   useEffect(() => {
     if (!canReadPage || !scopeReady) return;

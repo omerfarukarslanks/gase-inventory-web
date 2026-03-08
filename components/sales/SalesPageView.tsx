@@ -12,11 +12,15 @@ import SaleDetailModal from "@/components/sales/SaleDetailModal";
 import SaleReturnDrawer from "@/components/sales/SaleReturnDrawer";
 import SaleLinesDrawer from "@/components/sales/SaleLinesDrawer";
 import SaleDeleteLineDialog from "@/components/sales/SaleDeleteLineDialog";
+import PageHeader from "@/components/ui/PageHeader";
+import StatusBanner from "@/components/ui/StatusBanner";
+import TableFooterPagination from "@/components/ui/TableFooterPagination";
 
 type SalesPageViewProps = {
   title: string;
   description: string;
   success: string;
+  actionError?: string;
   filtersProps: ComponentProps<typeof SalesFilters>;
   tableProps: Omit<ComponentProps<typeof SalesTable>, "footer">;
   paginationProps?: ComponentProps<typeof TablePagination> | null;
@@ -34,6 +38,7 @@ export default function SalesPageView({
   title,
   description,
   success,
+  actionError,
   filtersProps,
   tableProps,
   paginationProps,
@@ -48,23 +53,26 @@ export default function SalesPageView({
 }: SalesPageViewProps) {
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-text">{title}</h1>
-        <p className="text-sm text-muted">{description}</p>
-      </div>
+      <PageHeader title={title} description={description} />
 
       <SalesFilters {...filtersProps} />
 
-      <SalesTable
-        {...tableProps}
-        footer={paginationProps ? <TablePagination {...paginationProps} /> : null}
-      />
+      {actionError && (
+        <StatusBanner tone="error">
+          {actionError}
+        </StatusBanner>
+      )}
 
       {success && (
-        <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+        <StatusBanner tone="success" className="bg-primary/10 p-3">
           {success}
-        </div>
+        </StatusBanner>
       )}
+
+      <SalesTable
+        {...tableProps}
+        footer={<TableFooterPagination paginationProps={paginationProps} />}
+      />
 
       <SaleDrawer {...saleDrawerProps} />
       <SalePaymentDrawer {...salePaymentDrawerProps} />

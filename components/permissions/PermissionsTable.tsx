@@ -5,6 +5,7 @@ import IconButton from "@/components/ui/IconButton";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { EditIcon } from "@/components/ui/icons/TableIcons";
 import type { Permission } from "@/lib/permissions";
+import { useLang } from "@/context/LangContext";
 
 type PermissionsTableProps = {
   permissions: Permission[];
@@ -27,10 +28,12 @@ export default function PermissionsTable({
   onTogglePermActive,
   footer,
 }: PermissionsTableProps) {
+  const { t } = useLang();
+
   return (
     <section className="overflow-hidden rounded-xl2 border border-border bg-surface">
       {permLoading ? (
-        <div className="p-6 text-sm text-muted">Yetkiler yükleniyor...</div>
+        <div className="p-6 text-sm text-muted">{t("permissions.permissionsLoading")}</div>
       ) : permError ? (
         <div className="p-6">
           <p className="text-sm text-error">{permError}</p>
@@ -41,18 +44,18 @@ export default function PermissionsTable({
             <table className="w-full min-w-[800px]">
               <thead className="border-b border-border bg-surface2/70">
                 <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3">Ad</th>
-                  <th className="px-4 py-3">Grup</th>
-                  <th className="px-4 py-3">Açıklama</th>
-                  <th className="px-4 py-3">Durum</th>
-                  <th className="sticky right-0 z-20 bg-surface2/70 px-4 py-3 text-right">İşlemler</th>
+                  <th className="px-4 py-3">{t("permissions.colName")}</th>
+                  <th className="px-4 py-3">{t("permissions.colGroup")}</th>
+                  <th className="px-4 py-3">{t("permissions.colDescription")}</th>
+                  <th className="px-4 py-3">{t("permissions.colStatus")}</th>
+                  <th className="sticky right-0 z-20 bg-surface2/70 px-4 py-3 text-right">{t("permissions.colActions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {permissions.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">
-                      Kayıt bulunamadı.
+                      {t("common.noData")}
                     </td>
                   </tr>
                 ) : (
@@ -74,7 +77,7 @@ export default function PermissionsTable({
                             permission.isActive ? "bg-primary/15 text-primary" : "bg-error/15 text-error"
                           }`}
                         >
-                          {permission.isActive ? "Aktif" : "Pasif"}
+                          {permission.isActive ? t("common.active") : t("common.passive")}
                         </span>
                       </td>
                       <td className="sticky right-0 z-10 bg-surface px-4 py-3 text-right group-hover:bg-surface2/50">
@@ -83,8 +86,8 @@ export default function PermissionsTable({
                             <IconButton
                               onClick={() => onEditPermission(permission)}
                               disabled={togglingPermIds.includes(permission.id)}
-                              aria-label="Yetki düzenle"
-                              title="Düzenle"
+                              aria-label={t("permissions.editPermissionAction")}
+                              title={t("common.edit")}
                             >
                               <EditIcon />
                             </IconButton>

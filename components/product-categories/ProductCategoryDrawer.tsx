@@ -3,8 +3,10 @@
 import type { FormEvent } from "react";
 import Drawer from "@/components/ui/Drawer";
 import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import InputField from "@/components/ui/InputField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import TextareaField from "@/components/ui/TextareaField";
 import { cn } from "@/lib/cn";
 import { useLang } from "@/context/LangContext";
 import type { CategoryForm } from "@/components/product-categories/types";
@@ -72,47 +74,43 @@ export default function ProductCategoryDrawer({
     >
       <form id="category-form" onSubmit={onSubmit} className="space-y-4 p-5">
         {loadingCategoryDetail ? (
-          <div className="text-sm text-muted">{t("common.loading")}</div>
+          <div className="text-sm text-muted">{t("productCategories.loadingDetail")}</div>
         ) : (
           <>
             <InputField
-              label="Kategori Adi *"
+              label={t("productCategories.name")}
               type="text"
               value={form.name}
               onChange={(value) => onFormChange("name", value)}
-              placeholder="Elektronik"
+              placeholder={t("productCategories.namePlaceholder")}
               error={nameError}
             />
 
             <InputField
-              label="Slug *"
+              label={t("productCategories.slug")}
               type="text"
               value={form.slug}
               onChange={(value) => onFormChange("slug", value)}
-              placeholder="elektronik"
+              placeholder={t("productCategories.slugPlaceholder")}
               error={slugError}
             />
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">Ust Kategori</label>
+            <FormField label={t("productCategories.parent")}>
               <SearchableDropdown
                 options={parentOptions}
                 value={form.parentId}
                 onChange={(value) => onFormChange("parentId", value)}
-                placeholder="Ana kategori"
-                emptyOptionLabel="Ana Kategori"
+                placeholder={t("productCategories.parentPlaceholder")}
+                emptyOptionLabel={t("productCategories.parentPlaceholder")}
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">Aciklama</label>
-              <textarea
-                value={form.description}
-                onChange={(event) => onFormChange("description", event.target.value)}
-                className="min-h-[92px] w-full rounded-xl2 border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/60"
-                placeholder="Tum elektronik urunler"
-              />
-            </div>
+            <TextareaField
+              label={t("productCategories.description")}
+              value={form.description}
+              onChange={(value) => onFormChange("description", value)}
+              placeholder={t("productCategories.descriptionPlaceholder")}
+            />
 
             {formError && <p className="text-sm text-error">{formError}</p>}
           </>

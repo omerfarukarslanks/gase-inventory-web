@@ -11,6 +11,7 @@ import type { CreateCustomerRequest, Customer } from "@/lib/customers";
 import type { PaymentMethod } from "@/lib/sales";
 import SaleDrawerDetailsSection from "@/components/sales/SaleDrawerDetailsSection";
 import SaleDrawerLinesSection from "@/components/sales/SaleDrawerLinesSection";
+import { useLang } from "@/context/LangContext";
 
 type SaleDrawerProps = {
   open: boolean;
@@ -51,7 +52,6 @@ type SaleDrawerProps = {
   errors: FieldErrors;
   onClearError: (field: keyof FieldErrors) => void;
   formError: string;
-  success: string;
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -70,8 +70,8 @@ export default function SaleDrawer({
   customerDropdownRefreshKey,
   onQuickCreateCustomer,
   variantOptions,
-  variantFieldLabel = "Varyant *",
-  variantPlaceholder = "Varyant secin",
+  variantFieldLabel,
+  variantPlaceholder,
   loadingMoreVariants,
   variantHasMore,
   onLoadMoreVariants,
@@ -95,34 +95,31 @@ export default function SaleDrawer({
   errors,
   onClearError,
   formError,
-  success,
   onClose,
   onSubmit,
 }: SaleDrawerProps) {
+  const { t } = useLang();
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="top"
-      title={editMode ? "Satisi Duzenle" : "Yeni Satis"}
-      description={
-        editMode
-          ? "Bu ekranda sadece musteri ve not bilgisi guncellenir."
-          : "Satis akisini buradan tamamlayabilirsiniz."
-      }
+      title={editMode ? t("sales.drawerEditTitle") : t("sales.new")}
+      description={editMode ? t("sales.drawerEditDescription") : t("sales.drawerCreateDescription")}
       closeDisabled={submitting}
       className="!max-h-[90vh]"
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="Iptal"
+            label={t("common.cancel")}
             onClick={onClose}
             variant="secondary"
             className="px-3 py-1.5"
             disabled={submitting}
           />
           <Button
-            label={submitting ? "Kaydediliyor..." : editMode ? "Guncelle" : "Satisi Kaydet"}
+            label={submitting ? t("common.saving") : editMode ? t("common.update") : t("sales.saveSale")}
             onClick={onSubmit}
             loading={submitting}
             variant="primarySolid"
@@ -163,8 +160,8 @@ export default function SaleDrawer({
           <SaleDrawerLinesSection
             loadingVariants={loadingVariants}
             variantOptions={variantOptions}
-            variantFieldLabel={variantFieldLabel}
-            variantPlaceholder={variantPlaceholder}
+            variantFieldLabel={variantFieldLabel ?? t("sales.variantLabel")}
+            variantPlaceholder={variantPlaceholder ?? t("sales.variantPlaceholder")}
             loadingMoreVariants={loadingMoreVariants}
             variantHasMore={variantHasMore}
             onLoadMoreVariants={onLoadMoreVariants}
@@ -177,10 +174,9 @@ export default function SaleDrawer({
           />
         )}
 
-        {(formError || success) && (
+        {formError && (
           <div className="rounded-xl border border-border bg-surface p-3">
-            {formError && <p className="text-sm text-error">{formError}</p>}
-            {success && <p className="text-sm text-primary">{success}</p>}
+            <p className="text-sm text-error">{formError}</p>
           </div>
         )}
       </div>

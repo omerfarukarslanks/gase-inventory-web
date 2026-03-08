@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import { ReportCatalogSection } from "@/components/reports/ReportCatalog";
 import { useLang } from "@/context/LangContext";
 import { usePermissionGuard } from "@/hooks/usePermissionGuard";
 
@@ -64,27 +65,21 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-text">{t("reports.title")}</h1>
-        <p className="text-sm text-muted">{t("reports.subtitle")}</p>
-      </div>
+      <ReportPageHeader
+        title={t("reports.title")}
+        description={t("reports.subtitle")}
+      />
 
       {reportCategories.map((category) => (
-        <section key={category.title}>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">{category.title}</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {category.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group rounded-xl2 border border-border bg-surface p-4 transition-colors hover:border-primary/30 hover:bg-primary/5"
-              >
-                <h3 className="text-sm font-semibold text-text group-hover:text-primary">{item.label}</h3>
-                <p className="mt-1 text-xs text-muted">{item.desc}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <ReportCatalogSection
+          key={category.title}
+          title={category.title}
+          items={category.items.map((item) => ({
+            href: item.href,
+            label: item.label,
+            description: item.desc,
+          }))}
+        />
       ))}
     </div>
   );

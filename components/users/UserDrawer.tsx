@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Drawer from "@/components/ui/Drawer";
 import InputField from "@/components/ui/InputField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import { useLang } from "@/context/LangContext";
 import { cn } from "@/lib/cn";
 import type { User } from "@/lib/users";
 import type { UserForm, UserFormErrors } from "@/components/users/types";
@@ -37,26 +38,28 @@ export default function UserDrawer({
   onSave,
   onFormChange,
 }: UserDrawerProps) {
+  const { t } = useLang();
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title={mode === "create" ? "Yeni Kullanıcı" : "Kullanıcı Düzenle"}
-      description={mode === "create" ? "Yeni bir kullanıcı hesabı oluşturun." : "Kullanıcı bilgilerini güncelleyin."}
+      title={mode === "create" ? t("users.new") : t("users.update")}
+      description={mode === "create" ? t("users.createDesc") : t("users.editDesc")}
       closeDisabled={saving}
       className={cn(isMobile && "!max-w-none")}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="İptal"
+            label={t("common.cancel")}
             type="button"
             onClick={onClose}
             disabled={saving}
             variant="secondary"
           />
           <Button
-            label={saving ? "Kaydediliyor..." : "Kaydet"}
+            label={saving ? t("common.saving") : t("common.save")}
             type="button"
             onClick={onSave}
             disabled={saving}
@@ -67,7 +70,7 @@ export default function UserDrawer({
     >
       <div className="space-y-4 p-5">
         <InputField
-          label="Ad *"
+          label={t("users.name")}
           type="text"
           value={form.name}
           onChange={(value) => onFormChange("name", value)}
@@ -75,7 +78,7 @@ export default function UserDrawer({
         />
 
         <InputField
-          label="Soyad *"
+          label={t("users.surname")}
           type="text"
           value={form.surname}
           onChange={(value) => onFormChange("surname", value)}
@@ -83,14 +86,14 @@ export default function UserDrawer({
         />
 
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Rol</label>
+          <label className="text-xs font-semibold text-muted">{t("users.role")}</label>
           <SearchableDropdown
             options={roleOptions}
             value={form.role}
             onChange={(role) => onFormChange("role", role)}
-            placeholder="Rol seçin"
-            inputAriaLabel="Rol seçimi"
-            toggleAriaLabel="Rol listesini aç"
+            placeholder={t("users.rolePlaceholder")}
+            inputAriaLabel={t("users.role")}
+            toggleAriaLabel={t("users.role")}
             allowClear={false}
             showEmptyOption={false}
           />
@@ -99,14 +102,14 @@ export default function UserDrawer({
         {mode === "create" ? (
           <>
             <InputField
-              label="E-Posta *"
+              label={t("users.email")}
               type="email"
               value={form.email}
               onChange={(value) => onFormChange("email", value)}
               error={errors.email}
             />
             <InputField
-              label="Şifre"
+              label={t("users.password")}
               type="password"
               value={form.password}
               onChange={(value) => onFormChange("password", value)}
@@ -115,7 +118,7 @@ export default function UserDrawer({
           </>
         ) : (
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Email (Değiştirilemez)</label>
+            <label className="text-xs font-semibold text-muted">{t("users.emailReadonly")}</label>
             <div className="w-full rounded-xl2 border border-border bg-surface2 px-4 py-2.5 text-sm text-text2">
               {selectedUser?.email}
             </div>
@@ -123,18 +126,20 @@ export default function UserDrawer({
         )}
 
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Mağaza Yetkisi</label>
+          <label className="text-xs font-semibold text-muted">{t("users.store")}</label>
           <SearchableDropdown
             options={storeOptions}
             value={form.storeId}
             onChange={(storeId) => onFormChange("storeId", storeId)}
-            placeholder="Mağaza seçin"
-            emptyOptionLabel="Mağaza seçin"
-            inputAriaLabel="Mağaza seçimi"
-            clearAriaLabel="Mağaza seçimini temizle"
-            toggleAriaLabel="Mağaza listesini aç"
+            placeholder={t("users.storePlaceholder")}
+            emptyOptionLabel={t("users.storePlaceholder")}
+            inputAriaLabel={t("users.store")}
+            clearAriaLabel={t("common.clearFilters")}
+            toggleAriaLabel={t("users.store")}
           />
-          {storeOptions.length === 0 && <div className="px-1 text-xs text-muted">Mağaza bulunamadı.</div>}
+          {storeOptions.length === 0 && (
+            <div className="px-1 text-xs text-muted">{t("users.storeNotFound")}</div>
+          )}
         </div>
       </div>
     </Drawer>

@@ -29,7 +29,6 @@ export function useStockListState({
   const [products, setProducts] = useState<InventoryProductStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
@@ -178,8 +177,6 @@ export function useStockListState({
     filteredProducts,
     loading,
     error,
-    success,
-    setSuccess,
     page: pagination.page,
     setPage: pagination.setPage,
     limit: pagination.pageSize,

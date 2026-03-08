@@ -1,109 +1,32 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useLang } from "@/context/LangContext";
+import { clearStringError } from "@/lib/form-errors";
 import {
   createSaleReturn,
   getSaleById,
-  type CreateSaleReturnLine,
-  type SaleDetailLine,
   type SaleListItem,
 } from "@/lib/sales";
 import { normalizeSaleDetail } from "@/lib/sales-normalize";
+import { buildSaleReturnPayload } from "@/components/sales/payload";
 import type { ReturnLineForm } from "@/components/sales/types";
+import {
+  buildReturnPayloadLine,
+  createReturnLineForm,
+  validateSaleReturnSelection,
+} from "@/components/sales/validation";
 
 type UseSaleReturnsOptions = {
   onRefreshSales: () => Promise<void>;
   onSuccess: (message: string) => void;
 };
 
-function createReturnLineForm(line: SaleDetailLine): ReturnLineForm {
-  const variants = line.variantPool ?? line.packageItems ?? [];
-
-  return {
-    saleLineId: line.id,
-    lineName:
-      line.productVariantName ??
-      line.productPackageName ??
-      line.productName ??
-      line.id,
-    originalQuantity: line.originalQuantity ?? line.quantity ?? 0,
-    returnedQuantity: line.returnedQuantity ?? 0,
-    completePackagesRemaining: line.completePackagesRemaining ?? null,
-    partialPackage: line.partialPackage ?? null,
-    isPackageLine: Boolean(line.productPackageId),
-    returnMode: "quantity",
-    returnQuantity: "",
-    packageVariantReturns: variants.map((item) => ({
-      productVariantId: item.productVariantId,
-      name: item.productVariantName ?? item.productVariantId,
-      qtyPerPackage: item.qtyPerPackage,
-      remaining: (item as { remaining?: number | null }).remaining ?? null,
-      returnQuantity: "",
-    })),
-    refundAmount: "",
-  };
-}
-
-function hasReturnSelection(line: ReturnLineForm): boolean {
-  if (line.returnMode === "variants") {
-    return line.packageVariantReturns.some((variant) => Number(variant.returnQuantity) > 0);
-  }
-
-  return line.returnQuantity !== "" && Number(line.returnQuantity) > 0;
-}
-
-function isInvalidReturnSelection(line: ReturnLineForm): boolean {
-  if (line.returnMode === "variants") {
-    return line.packageVariantReturns.some((variant) => {
-      if (variant.returnQuantity === "" || Number(variant.returnQuantity) === 0) {
-        return false;
-      }
-
-      const quantity = Number(variant.returnQuantity);
-      if (!Number.isFinite(quantity) || quantity < 0) return true;
-      if (variant.remaining != null && quantity > variant.remaining) return true;
-      return false;
-    });
-  }
-
-  const quantity = Number(line.returnQuantity);
-  const maxQuantity = line.isPackageLine
-    ? (line.completePackagesRemaining ?? line.originalQuantity)
-    : line.originalQuantity;
-
-  return !Number.isFinite(quantity) || quantity <= 0 || quantity > maxQuantity;
-}
-
-function buildReturnPayloadLine(line: ReturnLineForm): CreateSaleReturnLine {
-  const refund =
-    line.refundAmount !== "" && Number(line.refundAmount) >= 0
-      ? { refundAmount: Number(line.refundAmount) }
-      : {};
-
-  if (line.returnMode === "variants") {
-    return {
-      saleLineId: line.saleLineId,
-      packageVariantReturns: line.packageVariantReturns
-        .filter((variant) => Number(variant.returnQuantity) > 0)
-        .map((variant) => ({
-          productVariantId: variant.productVariantId,
-          quantity: Number(variant.returnQuantity),
-        })),
-      ...refund,
-    };
-  }
-
-  return {
-    saleLineId: line.saleLineId,
-    quantity: Number(line.returnQuantity),
-    ...refund,
-  };
-}
-
 export function useSaleReturns({
   onRefreshSales,
   onSuccess,
 }: UseSaleReturnsOptions) {
+  const { t } = useLang();
   const [returnDrawerOpen, setReturnDrawerOpen] = useState(false);
   const [returnTargetSale, setReturnTargetSale] = useState<SaleListItem | null>(null);
   const [returnLines, setReturnLines] = useState<ReturnLineForm[]>([]);
@@ -115,7 +38,7 @@ export function useSaleReturns({
   const openReturnDrawer = useCallback(async (sale: SaleListItem) => {
     setReturnTargetSale(sale);
     setReturnNotes("");
-    setReturnFormError("");
+    clearStringError(returnFormError, setReturnFormError);
     setReturnLines([]);
     setReturnDrawerOpen(true);
     setReturnDetailLoading(true);
@@ -124,17 +47,17 @@ export function useSaleReturns({
       const response = await getSaleById(sale.id);
       const detail = normalizeSaleDetail(response);
       if (!detail) {
-        setReturnFormError("Satis detayi alinamadi.");
+        setReturnFormError(t("sales.returnSaleDetailError"));
         return;
       }
 
       setReturnLines(detail.lines.map(createReturnLineForm));
     } catch {
-      setReturnFormError("Satis satirlari yuklenemedi.");
+      setReturnFormError(t("sales.returnLinesLoadError"));
     } finally {
       setReturnDetailLoading(false);
     }
-  }, []);
+  }, [returnFormError, t]);
 
   const closeReturnDrawer = useCallback(() => {
     if (returnSubmitting) return;
@@ -142,71 +65,28 @@ export function useSaleReturns({
     setReturnTargetSale(null);
     setReturnLines([]);
     setReturnNotes("");
-    setReturnFormError("");
-  }, [returnSubmitting]);
+    clearStringError(returnFormError, setReturnFormError);
+  }, [returnFormError, returnSubmitting]);
 
-  const submitReturn = useCallback(async () => {
-    if (!returnTargetSale) return;
-
-    const activeLines = returnLines.filter(hasReturnSelection);
-    if (activeLines.length === 0) {
-      setReturnFormError("En az bir satir icin iade adedi girin.");
-      return;
-    }
-
-    if (activeLines.some(isInvalidReturnSelection)) {
-      setReturnFormError("Iade adedi gecersiz. Lutfen kontrol edin.");
-      return;
-    }
-
-    setReturnSubmitting(true);
-    setReturnFormError("");
-
-    try {
-      await createSaleReturn(returnTargetSale.id, {
-        lines: activeLines.map(buildReturnPayloadLine),
-        notes: returnNotes.trim() || undefined,
-      });
-      onSuccess("Iade olusturuldu.");
-      setReturnDrawerOpen(false);
-      setReturnTargetSale(null);
-      setReturnLines([]);
-      setReturnNotes("");
-      await onRefreshSales();
-    } catch {
-      setReturnFormError("Iade olusturulamadi. Lutfen tekrar deneyin.");
-    } finally {
-      setReturnSubmitting(false);
-    }
-  }, [onRefreshSales, onSuccess, returnLines, returnNotes, returnTargetSale]);
-
-  const handleReturnModeChange = useCallback((lineIndex: number, value: "quantity" | "variants") => {
-    if (returnFormError) setReturnFormError("");
-    setReturnLines((prev) =>
-      prev.map((line, index) => (index === lineIndex ? { ...line, returnMode: value } : line)),
-    );
+  const withClearedReturnFormError = useCallback((apply: () => void) => {
+    clearStringError(returnFormError, setReturnFormError);
+    apply();
   }, [returnFormError]);
 
-  const handleReturnQuantityChange = useCallback((lineIndex: number, value: string) => {
-    if (returnFormError) setReturnFormError("");
+  const patchReturnLine = useCallback((
+    lineIndex: number,
+    patch: Partial<ReturnLineForm>,
+  ) => {
     setReturnLines((prev) =>
-      prev.map((line, index) => (index === lineIndex ? { ...line, returnQuantity: value } : line)),
+      prev.map((line, index) => (index === lineIndex ? { ...line, ...patch } : line)),
     );
-  }, [returnFormError]);
+  }, []);
 
-  const handleRefundAmountChange = useCallback((lineIndex: number, value: string) => {
-    if (returnFormError) setReturnFormError("");
-    setReturnLines((prev) =>
-      prev.map((line, index) => (index === lineIndex ? { ...line, refundAmount: value } : line)),
-    );
-  }, [returnFormError]);
-
-  const handlePackageVariantReturnQuantityChange = useCallback((
+  const patchReturnLineVariant = useCallback((
     lineIndex: number,
     variantIndex: number,
-    value: string,
+    returnQuantity: string,
   ) => {
-    if (returnFormError) setReturnFormError("");
     setReturnLines((prev) =>
       prev.map((line, index) => {
         if (index !== lineIndex) return line;
@@ -214,17 +94,69 @@ export function useSaleReturns({
         return {
           ...line,
           packageVariantReturns: line.packageVariantReturns.map((variant, innerIndex) =>
-            innerIndex === variantIndex ? { ...variant, returnQuantity: value } : variant,
+            innerIndex === variantIndex ? { ...variant, returnQuantity } : variant,
           ),
         };
       }),
     );
-  }, [returnFormError]);
+  }, []);
+
+  const submitReturn = useCallback(async () => {
+    if (!returnTargetSale) return;
+
+    const validation = validateSaleReturnSelection(returnLines, {
+      selectionRequired: t("sales.returnLinesRequired"),
+      quantityInvalid: t("sales.returnQuantityInvalidError"),
+    });
+    if (validation.error) {
+      setReturnFormError(validation.error);
+      return;
+    }
+
+    setReturnSubmitting(true);
+    clearStringError(returnFormError, setReturnFormError);
+
+    try {
+      await createSaleReturn(
+        returnTargetSale.id,
+        buildSaleReturnPayload(validation.selectedLines.map(buildReturnPayloadLine), returnNotes),
+      );
+      onSuccess(t("sales.returnSuccess"));
+      setReturnDrawerOpen(false);
+      setReturnTargetSale(null);
+      setReturnLines([]);
+      setReturnNotes("");
+      await onRefreshSales();
+    } catch {
+      setReturnFormError(t("sales.returnCreateError"));
+    } finally {
+      setReturnSubmitting(false);
+    }
+  }, [onRefreshSales, onSuccess, returnFormError, returnLines, returnNotes, returnTargetSale, t]);
+
+  const handleReturnModeChange = useCallback((lineIndex: number, value: "quantity" | "variants") => {
+    withClearedReturnFormError(() => patchReturnLine(lineIndex, { returnMode: value }));
+  }, [patchReturnLine, withClearedReturnFormError]);
+
+  const handleReturnQuantityChange = useCallback((lineIndex: number, value: string) => {
+    withClearedReturnFormError(() => patchReturnLine(lineIndex, { returnQuantity: value }));
+  }, [patchReturnLine, withClearedReturnFormError]);
+
+  const handleRefundAmountChange = useCallback((lineIndex: number, value: string) => {
+    withClearedReturnFormError(() => patchReturnLine(lineIndex, { refundAmount: value }));
+  }, [patchReturnLine, withClearedReturnFormError]);
+
+  const handlePackageVariantReturnQuantityChange = useCallback((
+    lineIndex: number,
+    variantIndex: number,
+    value: string,
+  ) => {
+    withClearedReturnFormError(() => patchReturnLineVariant(lineIndex, variantIndex, value));
+  }, [patchReturnLineVariant, withClearedReturnFormError]);
 
   const handleReturnNotesChange = useCallback((value: string) => {
-    if (returnFormError) setReturnFormError("");
-    setReturnNotes(value);
-  }, [returnFormError]);
+    withClearedReturnFormError(() => setReturnNotes(value));
+  }, [withClearedReturnFormError]);
 
   return {
     returnDrawerOpen,

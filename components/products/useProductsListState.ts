@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLang } from "@/context/LangContext";
+import { clearStringRecordError } from "@/lib/form-errors";
 import {
   getProducts,
   getProductVariants,
@@ -20,13 +22,16 @@ type UseProductsListStateOptions = {
   canReadPage: boolean;
   scopeReady: boolean;
   loadErrorMessage: string;
+  onActionError?: (message: string) => void;
 };
 
 export function useProductsListState({
   canReadPage,
   scopeReady,
   loadErrorMessage,
+  onActionError,
 }: UseProductsListStateOptions) {
+  const { t } = useLang();
   const [products, setProducts] = useState<Product[]>([]);
   const [meta, setMeta] = useState<ProductsListMeta | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -159,12 +164,12 @@ export function useProductsListState({
         });
         await fetchProducts();
       } catch {
-        setError("Urun durumu guncellenemedi. Lutfen tekrar deneyin.");
+        onActionError?.(t("products.productStatusUpdateError"));
       } finally {
         setTogglingProductIds((prev) => prev.filter((id) => id !== product.id));
       }
     },
-    [fetchProducts],
+    [fetchProducts, onActionError, t],
   );
 
   const fetchTableVariants = useCallback(
@@ -172,7 +177,7 @@ export function useProductsListState({
       if (productVariantsLoadingById[productId]) return;
 
       setProductVariantsLoadingById((prev) => ({ ...prev, [productId]: true }));
-      setProductVariantsErrorById((prev) => ({ ...prev, [productId]: "" }));
+      setProductVariantsErrorById((prev) => clearStringRecordError(prev, productId));
 
       try {
         const payload = await getProductVariants(productId, { isActive: status });
@@ -181,13 +186,13 @@ export function useProductsListState({
       } catch {
         setProductVariantsErrorById((prev) => ({
           ...prev,
-          [productId]: "Varyantlar yüklenemedi. Lütfen tekrar deneyin.",
+          [productId]: t("products.variantsLoadError"),
         }));
       } finally {
         setProductVariantsLoadingById((prev) => ({ ...prev, [productId]: false }));
       }
     },
-    [productVariantsLoadingById, variantStatusFilter],
+    [productVariantsLoadingById, t, variantStatusFilter],
   );
 
   const toggleExpandedProduct = useCallback(
@@ -218,13 +223,13 @@ export function useProductsListState({
       } catch {
         setProductVariantsErrorById((prev) => ({
           ...prev,
-          [productId]: "Varyant durumu guncellenemedi. Lutfen tekrar deneyin.",
+          [productId]: t("products.variantStatusUpdateError"),
         }));
       } finally {
         setTogglingVariantIds((prev) => prev.filter((id) => id !== variant.id));
       }
     },
-    [fetchTableVariants, variantStatusFilter],
+    [fetchTableVariants, t, variantStatusFilter],
   );
 
   useEffect(() => {

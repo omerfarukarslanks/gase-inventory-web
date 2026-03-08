@@ -2,9 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { receiveInventory, receiveInventoryBulk, type InventoryReceiveItem, type InventoryStoreStockItem } from "@/lib/inventory";
+import { clearStringError } from "@/lib/form-errors";
 import type { Currency, ProductVariant } from "@/lib/products";
 import type { VariantActionParams } from "@/components/stock/StockTable";
 import type { ReceiveTarget } from "@/components/stock/ReceiveDrawer";
+import { validateInventoryItemsPresent } from "@/components/stock/validation";
 import type { StockEntryInitialEntry } from "@/components/inventory/StockEntryForm";
 
 type UseStockReceiveFlowOptions = {
@@ -37,7 +39,7 @@ export function useStockReceiveFlow({
   const [receiveCurrency, setReceiveCurrency] = useState<Currency>("TRY");
 
   const openReceiveDrawer = useCallback(async (params: VariantActionParams) => {
-    setReceiveFormError("");
+    clearStringError(receiveFormError, setReceiveFormError);
     setReceiveLoading(true);
     setReceiveTarget({
       productVariantId: params.productVariantId,
@@ -61,7 +63,7 @@ export function useStockReceiveFlow({
     setReceiveInitial({});
     setReceiveOpen(true);
     setReceiveLoading(false);
-  }, [resolveVariantStores]);
+  }, [receiveFormError, resolveVariantStores]);
 
   const closeReceiveDrawer = useCallback(() => {
     if (receiveSubmitting) return;
@@ -69,18 +71,19 @@ export function useStockReceiveFlow({
     setReceiveTarget(null);
     setReceiveInitial({});
     setReceiveSupplierId("");
-    setReceiveFormError("");
-  }, [receiveSubmitting]);
+    clearStringError(receiveFormError, setReceiveFormError);
+  }, [receiveFormError, receiveSubmitting]);
 
   const submitReceive = useCallback(async (items: InventoryReceiveItem[]) => {
     if (!receiveTarget) return;
-    if (items.length === 0) {
-      setReceiveFormError(atLeastOneStoreRowMessage);
+    const validationError = validateInventoryItemsPresent(items, atLeastOneStoreRowMessage);
+    if (validationError) {
+      setReceiveFormError(validationError);
       return;
     }
 
     setReceiveSubmitting(true);
-    setReceiveFormError("");
+    clearStringError(receiveFormError, setReceiveFormError);
     try {
       if (items.length === 1) {
         await receiveInventory(items[0]);
@@ -105,6 +108,7 @@ export function useStockReceiveFlow({
     onRefreshVariantStores,
     onSuccess,
     receiveErrorMessage,
+    receiveFormError,
     receiveSuccessMessage,
     receiveTarget,
   ]);

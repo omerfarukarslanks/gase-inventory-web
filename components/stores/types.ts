@@ -14,6 +14,17 @@ export type StoreForm = {
   description: string;
 };
 
+export type StoresPageMessages = {
+  sessionNotFound: string;
+  loadError: string;
+  detailLoadError: string;
+  nameRequired: string;
+  nameMinLength: string;
+  updateError: string;
+  createError: string;
+  toggleError: string;
+};
+
 export const EMPTY_FORM: StoreForm = {
   name: "",
   storeType: "RETAIL",

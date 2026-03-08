@@ -1,46 +1,75 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
 import {
   getReportProfitMargin,
   type ProfitMarginItem,
   type ProfitMarginResponse,
 } from "@/lib/reports";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import {
+  ReportDateInput,
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+  ReportNumberInput,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import ReportSummaryCards from "@/components/reports/ReportSummaryCards";
+import {
+  ReportTable,
+  ReportTableBody,
+  ReportTableCell,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
 import { formatPrice } from "@/lib/format";
+import { formatReportPercent } from "@/lib/report-format";
+import { getDefaultReportDateRange } from "@/lib/report-dates";
 
-const today = new Date().toISOString().slice(0, 10);
-const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+const defaultDateRange = getDefaultReportDateRange();
 
 export default function ProfitMarginPage() {
-  const [startDate, setStartDate] = useState(monthAgo);
-  const [endDate, setEndDate] = useState(today);
+  const [startDateInput, setStartDateInput] = useState(defaultDateRange.startDate);
+  const [endDateInput, setEndDateInput] = useState(defaultDateRange.endDate);
+  const [limitInput, setLimitInput] = useState("50");
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
   const [limit, setLimit] = useState(50);
-  const [items, setItems] = useState<ProfitMarginItem[]>([]);
-  const [totals, setTotals] = useState<ProfitMarginResponse["totals"]>(undefined);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportProfitMargin({ startDate, endDate, limit });
-      setItems(res.data ?? []);
-      setTotals(res.totals);
-    } catch {
-      setItems([]);
-      setTotals(undefined);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadData = useCallback(async (): Promise<{
+    items: ProfitMarginItem[];
+    totals: ProfitMarginResponse["totals"];
+  }> => {
+    const res = await getReportProfitMargin({ startDate, endDate, limit });
+    return {
+      items: res.data ?? [],
+      totals: res.totals,
+    };
   }, [startDate, endDate, limit]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<{
+    items: ProfitMarginItem[];
+    totals: ProfitMarginResponse["totals"];
+  }>({
+    initialData: {
+      items: [],
+      totals: undefined,
+    },
+    load: loadData,
+  });
 
+  const { items, totals } = data;
   const hasCurrency = items.some((item) => Boolean(item.currency));
 
   const summaryCards = [
@@ -49,150 +78,115 @@ export default function ProfitMarginPage() {
     { label: "Brut Kar", value: formatPrice(totals?.grossProfit) },
     {
       label: "Kar Marji",
-      value:
-        totals?.profitMargin != null
-          ? totals.profitMargin.toFixed(1) + "%"
-          : "-",
+      value: formatReportPercent(totals?.profitMargin),
     },
   ];
 
+  const handleFilter = () => {
+    const parsedLimit = Number.parseInt(limitInput, 10);
+    const nextLimit = Number.isNaN(parsedLimit) || parsedLimit <= 0 ? 50 : parsedLimit;
+
+    if (
+      startDateInput === startDate &&
+      endDateInput === endDate &&
+      nextLimit === limit
+    ) {
+      void refresh();
+      return;
+    }
+
+    setStartDate(startDateInput);
+    setEndDate(endDateInput);
+    setLimit(nextLimit);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <Link
-          href="/reports"
-          className="mb-2 inline-block text-sm text-primary hover:underline"
-        >
-          &larr; Raporlar
-        </Link>
-        <h1 className="text-xl font-semibold text-text">Kar Marji</h1>
-        <p className="text-sm text-muted">
-          Urun bazli kar marji analizi
-        </p>
-      </div>
+      <ReportPageHeader
+        title="Kar Marji"
+        description="Urun bazli kar marji analizi"
+      />
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Baslangic
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+      <ReportFilters>
+        <ReportFilterField label="Baslangic">
+          <ReportDateInput
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Bitis
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        </ReportFilterField>
+        <ReportFilterField label="Bitis">
+          <ReportDateInput
+            value={endDateInput}
+            onChange={(e) => setEndDateInput(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Limit
-          </label>
-          <input
-            type="number"
+        </ReportFilterField>
+        <ReportFilterField label="Limit">
+          <ReportNumberInput
             min={1}
             max={500}
-            value={limit}
-            onChange={(e) => setLimit(Number(e.target.value) || 50)}
-            className="h-10 w-24 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            value={limitInput}
+            onChange={(e) => setLimitInput(e.target.value)}
+            className="w-24"
           />
-        </div>
-        <button
-          onClick={() => void fetchData()}
-          disabled={loading}
-          className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "Yukleniyor..." : "Filtrele"}
-        </button>
-      </div>
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">Yukleniyor...</p>
-        </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">
-            Secilen tarih araliginda veri bulunamadi.
-          </p>
-        </div>
-      ) : (
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={items.length === 0}
+        emptyMessage="Secilen tarih araliginda veri bulunamadi."
+      >
         <>
-          {/* Totals */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {summaryCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-border bg-surface p-5"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  {card.label}
-                </p>
-                <p className="mt-2 text-2xl font-bold text-text">
-                  {card.value}
-                </p>
-              </div>
-            ))}
-          </div>
+          <ReportSummaryCards
+            items={summaryCards}
+            gridClassName="sm:grid-cols-2 lg:grid-cols-4"
+          />
 
-          {/* Table */}
-          <div className="overflow-x-auto rounded-2xl border border-border bg-surface p-6 shadow-glow">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted">
-                  <th className="pb-3 pr-4">Urun</th>
-                  <th className="pb-3 pr-4">Varyant</th>
-                  <th className="pb-3 pr-4">Kod</th>
-                  <th className="pb-3 pr-4">Satilan</th>
-                  {hasCurrency && <th className="pb-3 pr-4">PB</th>}
-                  <th className="pb-3 pr-4">Gelir</th>
-                  <th className="pb-3 pr-4">Maliyet</th>
-                  <th className="pb-3 pr-4">Brut Kar</th>
-                  <th className="pb-3">Marj</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {items.map((item, idx) => (
-                  <tr key={idx} className="text-text">
-                    <td className="py-3 pr-4 font-medium">
-                      {item.productName ?? "-"}
-                    </td>
-                    <td className="py-3 pr-4">{item.variantName ?? "-"}</td>
-                    <td className="py-3 pr-4">{item.variantCode ?? "-"}</td>
-                    <td className="py-3 pr-4">{item.soldQuantity ?? 0}</td>
-                    {hasCurrency && <td className="py-3 pr-4">{item.currency ?? "-"}</td>}
-                    <td className="py-3 pr-4">{formatPrice(item.totalRevenue)}</td>
-                    <td className="py-3 pr-4">{formatPrice(item.totalCost)}</td>
-                    <td className="py-3 pr-4">{formatPrice(item.grossProfit)}</td>
-                    <td className="py-3">
-                      {item.profitMargin != null
-                        ? item.profitMargin.toFixed(1) + "%"
-                        : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ReportTableSurface padded>
+            <ReportTableScroll>
+              <ReportTable>
+                <ReportTableHead>
+                  <ReportTableHeadRow>
+                    <ReportTableHeaderCell compact>Urun</ReportTableHeaderCell>
+                    <ReportTableHeaderCell compact>Varyant</ReportTableHeaderCell>
+                    <ReportTableHeaderCell compact>Kod</ReportTableHeaderCell>
+                    <ReportTableHeaderCell compact>Satilan</ReportTableHeaderCell>
+                    {hasCurrency && <ReportTableHeaderCell compact>PB</ReportTableHeaderCell>}
+                    <ReportTableHeaderCell compact>Gelir</ReportTableHeaderCell>
+                    <ReportTableHeaderCell compact>Maliyet</ReportTableHeaderCell>
+                    <ReportTableHeaderCell compact>Brut Kar</ReportTableHeaderCell>
+                    <ReportTableHeaderCell compact className="pr-0">Marj</ReportTableHeaderCell>
+                  </ReportTableHeadRow>
+                </ReportTableHead>
+                <ReportTableBody divided>
+                  {items.map((item, idx) => (
+                    <ReportTableRow key={idx} className="text-text">
+                      <ReportTableCell compact className="font-medium">
+                        {item.productName ?? "-"}
+                      </ReportTableCell>
+                      <ReportTableCell compact>{item.variantName ?? "-"}</ReportTableCell>
+                      <ReportTableCell compact>{item.variantCode ?? "-"}</ReportTableCell>
+                      <ReportTableCell compact>{item.soldQuantity ?? 0}</ReportTableCell>
+                      {hasCurrency && <ReportTableCell compact>{item.currency ?? "-"}</ReportTableCell>}
+                      <ReportTableCell compact>{formatPrice(item.totalRevenue)}</ReportTableCell>
+                      <ReportTableCell compact>{formatPrice(item.totalCost)}</ReportTableCell>
+                      <ReportTableCell compact>{formatPrice(item.grossProfit)}</ReportTableCell>
+                      <ReportTableCell compact className="pr-0">
+                        {formatReportPercent(item.profitMargin)}
+                      </ReportTableCell>
+                    </ReportTableRow>
+                  ))}
+                </ReportTableBody>
+              </ReportTable>
+            </ReportTableScroll>
+          </ReportTableSurface>
         </>
-      )}
+      </ReportAsyncState>
     </div>
   );
 }

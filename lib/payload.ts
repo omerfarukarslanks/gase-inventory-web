@@ -15,3 +15,9 @@ export function trimToNull(value: string | null | undefined): string | null {
 export function nullishToUndefined<T>(value: T | null | undefined): T | undefined {
   return value ?? undefined;
 }
+
+export function omitUndefined<T extends Record<string, unknown>>(obj: T): T {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, value]) => value !== undefined),
+  ) as T;
+}

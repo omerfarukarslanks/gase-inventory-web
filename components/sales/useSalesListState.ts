@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTablePaginationState } from "@/hooks/useTablePaginationState";
+import { trimToUndefined } from "@/lib/payload";
 import { getSales, type SaleListItem, type SalesListMeta } from "@/lib/sales";
 import { normalizeSalesResponse } from "@/lib/sales-normalize";
 
@@ -52,11 +53,11 @@ export function useSalesListState({
           limit: pagination.pageSize,
           includeLines: salesIncludeLines,
           ...(canTenantOnly ? {} : { storeIds: salesStoreIds }),
-          receiptNo: salesReceiptNoFilter || undefined,
-          name: salesNameFilter || undefined,
-          surname: salesSurnameFilter || undefined,
+          receiptNo: trimToUndefined(salesReceiptNoFilter),
+          name: trimToUndefined(salesNameFilter),
+          surname: trimToUndefined(salesSurnameFilter),
           status: salesStatusFilters.length > 0 ? salesStatusFilters : undefined,
-          paymentStatus: salesPaymentStatusFilter || undefined,
+          paymentStatus: trimToUndefined(salesPaymentStatusFilter),
           minUnitPrice: salesMinUnitPriceFilter ? Number(salesMinUnitPriceFilter) : undefined,
           maxUnitPrice: salesMaxUnitPriceFilter ? Number(salesMaxUnitPriceFilter) : undefined,
           minLineTotal: salesMinLineTotalFilter ? Number(salesMinLineTotalFilter) : undefined,

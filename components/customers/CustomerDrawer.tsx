@@ -3,12 +3,13 @@
 import type { FormEvent } from "react";
 import Drawer from "@/components/ui/Drawer";
 import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import InputField from "@/components/ui/InputField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import { cn } from "@/lib/cn";
 import { useLang } from "@/context/LangContext";
-import { GENDER_OPTIONS, type CustomerForm } from "@/components/customers/types";
+import { getGenderOptions, type CustomerForm } from "@/components/customers/types";
 
 type CustomerDrawerProps = {
   open: boolean;
@@ -46,6 +47,7 @@ export default function CustomerDrawer({
   onEditingCustomerIsActiveChange,
 }: CustomerDrawerProps) {
   const { t } = useLang();
+  const genderOptions = getGenderOptions(t);
 
   return (
     <Drawer
@@ -77,7 +79,7 @@ export default function CustomerDrawer({
     >
       <form id="customer-form" onSubmit={onSubmit} className="space-y-4 p-5">
         {loadingCustomerDetail ? (
-          <div className="text-sm text-muted">{t("common.loading")}</div>
+          <div className="text-sm text-muted">{t("customers.loadingDetail")}</div>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -86,48 +88,48 @@ export default function CustomerDrawer({
                 type="text"
                 value={form.name}
                 onChange={(value) => onFormChange("name", value)}
-                placeholder="Ahmet"
+                placeholder={t("customers.namePlaceholder")}
                 error={nameError}
               />
               <InputField
-                label="Soyisim *"
+                label={t("customers.surname")}
                 type="text"
                 value={form.surname}
                 onChange={(value) => onFormChange("surname", value)}
-                placeholder="Yilmaz"
+                placeholder={t("customers.surnamePlaceholder")}
                 error={surnameError}
               />
             </div>
 
             <InputField
-              label="Adres"
+              label={t("customers.address")}
               type="text"
               value={form.address}
               onChange={(value) => onFormChange("address", value)}
-              placeholder="Ataturk Cad. No:1"
+              placeholder={t("customers.addressPlaceholder")}
             />
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <InputField
-                label="Ulke"
+                label={t("customers.country")}
                 type="text"
                 value={form.country}
                 onChange={(value) => onFormChange("country", value)}
-                placeholder="Turkiye"
+                placeholder={t("customers.countryPlaceholder")}
               />
               <InputField
-                label="Sehir"
+                label={t("customers.city")}
                 type="text"
                 value={form.city}
                 onChange={(value) => onFormChange("city", value)}
-                placeholder="Istanbul"
+                placeholder={t("customers.cityPlaceholder")}
               />
               <InputField
-                label="Ilce"
+                label={t("customers.district")}
                 type="text"
                 value={form.district}
                 onChange={(value) => onFormChange("district", value)}
-                placeholder="Kadikoy"
+                placeholder={t("customers.districtPlaceholder")}
               />
             </div>
 
@@ -137,41 +139,39 @@ export default function CustomerDrawer({
                 type="text"
                 value={form.phoneNumber}
                 onChange={(value) => onFormChange("phoneNumber", value)}
-                placeholder="+905321234567"
+                placeholder={t("customers.phonePlaceholder")}
               />
               <InputField
                 label={t("customers.colEmail")}
                 type="email"
                 value={form.email}
                 onChange={(value) => onFormChange("email", value)}
-                placeholder="ahmet@example.com"
+                placeholder={t("customers.emailPlaceholder")}
                 error={emailError}
               />
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted">Cinsiyet</label>
+              <FormField label={t("customers.gender")}>
                 <SearchableDropdown
-                  options={GENDER_OPTIONS}
+                  options={genderOptions}
                   value={form.gender}
                   onChange={(value) => onFormChange("gender", value)}
-                  placeholder="Cinsiyet secin"
-                  emptyOptionLabel="Cinsiyet secin"
-                  inputAriaLabel="Cinsiyet secimi"
-                  clearAriaLabel="Cinsiyet secimini temizle"
-                  toggleAriaLabel="Cinsiyet listesini ac"
+                  placeholder={t("customers.genderPlaceholder")}
+                  emptyOptionLabel={t("customers.genderPlaceholder")}
+                  inputAriaLabel={t("customers.gender")}
+                  clearAriaLabel={t("customers.genderPlaceholder")}
+                  toggleAriaLabel={t("customers.gender")}
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted">Dogum Tarihi</label>
+              </FormField>
+              <FormField label={t("customers.birthDate")}>
                 <input
                   type="date"
                   value={form.birthDate}
                   onChange={(event) => onFormChange("birthDate", event.target.value)}
                   className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 />
-              </div>
+              </FormField>
             </div>
 
             {editingCustomerId && (

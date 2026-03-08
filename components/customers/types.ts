@@ -13,11 +13,19 @@ export type CustomerForm = {
   birthDate: string;
 };
 
-export const GENDER_OPTIONS = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
-];
+export type CustomersPageMessages = {
+  loadErrorMessage: string;
+};
+
+export type TranslateFn = (key: string) => string;
+
+export function getGenderOptions(t: TranslateFn) {
+  return [
+    { value: "male", label: t("customers.genderMale") },
+    { value: "female", label: t("customers.genderFemale") },
+    { value: "other", label: t("customers.genderOther") },
+  ];
+}
 
 export const EMPTY_FORM: CustomerForm = {
   name: "",

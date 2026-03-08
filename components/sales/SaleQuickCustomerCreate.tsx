@@ -2,13 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import CustomerInfinityDropdown from "@/components/sales/CustomerInfinityDropdown";
+import TextareaField from "@/components/ui/TextareaField";
+import { trimText, trimToUndefined } from "@/lib/payload";
 import type {
   CreateCustomerRequest,
   Customer,
   CustomerGender,
 } from "@/lib/customers";
+import { getGenderOptions } from "@/components/customers/types";
+import { useLang } from "@/context/LangContext";
+import { clearStringError } from "@/lib/form-errors";
 
 type SaleQuickCustomerCreateProps = {
   drawerOpen: boolean;
@@ -22,7 +28,6 @@ type SaleQuickCustomerCreateProps = {
   onCustomerIdChange: (value: string) => void;
   onCustomerSelected: (customer: Customer) => void;
   onQuickCreateCustomer: (payload: CreateCustomerRequest) => Promise<Customer>;
-  onClearCustomerError: () => void;
 };
 
 type QuickCustomerForm = {
@@ -51,12 +56,6 @@ const EMPTY_QUICK_CUSTOMER_FORM: QuickCustomerForm = {
   birthDate: "",
 };
 
-const GENDER_OPTIONS = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
-];
-
 export default function SaleQuickCustomerCreate({
   drawerOpen,
   customerId,
@@ -69,8 +68,9 @@ export default function SaleQuickCustomerCreate({
   onCustomerIdChange,
   onCustomerSelected,
   onQuickCreateCustomer,
-  onClearCustomerError,
 }: SaleQuickCustomerCreateProps) {
+  const { t } = useLang();
+  const genderOptions = getGenderOptions(t);
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateSubmitting, setQuickCreateSubmitting] = useState(false);
   const [quickCreateError, setQuickCreateError] = useState("");
@@ -84,47 +84,48 @@ export default function SaleQuickCustomerCreate({
   }, [drawerOpen]);
 
   const onChangeQuickField = (field: keyof QuickCustomerForm, value: string) => {
-    if (quickCreateError) setQuickCreateError("");
+    clearStringError(quickCreateError, setQuickCreateError);
     setQuickForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const onCloseQuickCreate = () => {
     if (quickCreateSubmitting) return;
     setQuickCreateOpen(false);
-    setQuickCreateError("");
+    clearStringError(quickCreateError, setQuickCreateError);
     setQuickForm(EMPTY_QUICK_CUSTOMER_FORM);
   };
 
   const onSubmitQuickCreate = async () => {
-    if (!quickForm.name.trim() || !quickForm.surname.trim()) {
-      setQuickCreateError("Isim ve soyisim zorunludur.");
+    const trimmedName = trimText(quickForm.name);
+    const trimmedSurname = trimText(quickForm.surname);
+
+    if (!trimmedName || !trimmedSurname) {
+      setQuickCreateError(t("sales.quickCustomerRequired"));
       return;
     }
 
     setQuickCreateSubmitting(true);
-    setQuickCreateError("");
+    clearStringError(quickCreateError, setQuickCreateError);
     try {
       const created = await onQuickCreateCustomer({
-        name: quickForm.name.trim(),
-        surname: quickForm.surname.trim(),
-        address: quickForm.address.trim() || undefined,
-        country: quickForm.country.trim() || undefined,
-        city: quickForm.city.trim() || undefined,
-        district: quickForm.district.trim() || undefined,
-        phoneNumber: quickForm.phoneNumber.trim() || undefined,
-        email: quickForm.email.trim() || undefined,
-        gender: (quickForm.gender || undefined) as CustomerGender | undefined,
-        birthDate: quickForm.birthDate || undefined,
+        name: trimmedName,
+        surname: trimmedSurname,
+        address: trimToUndefined(quickForm.address),
+        country: trimToUndefined(quickForm.country),
+        city: trimToUndefined(quickForm.city),
+        district: trimToUndefined(quickForm.district),
+        phoneNumber: trimToUndefined(quickForm.phoneNumber),
+        email: trimToUndefined(quickForm.email),
+        gender: (trimToUndefined(quickForm.gender) as CustomerGender | undefined) ?? undefined,
+        birthDate: trimToUndefined(quickForm.birthDate),
       });
 
-      onCustomerIdChange(created.id);
       onCustomerSelected(created);
-      onClearCustomerError();
       setQuickCreateOpen(false);
-      setQuickCreateError("");
+      clearStringError(quickCreateError, setQuickCreateError);
       setQuickForm(EMPTY_QUICK_CUSTOMER_FORM);
     } catch {
-      setQuickCreateError("Musteri olusturulamadi. Lutfen tekrar deneyin.");
+      setQuickCreateError(t("sales.quickCustomerError"));
     } finally {
       setQuickCreateSubmitting(false);
     }
@@ -133,129 +134,118 @@ export default function SaleQuickCustomerCreate({
   return (
     <div className="md:col-span-2">
       <div className="mb-1 flex items-center justify-between gap-2">
-        <label className="text-xs font-semibold text-muted">Musteri *</label>
+        <label className="text-xs font-semibold text-muted">{t("sales.customerLabel")} *</label>
         <button
           type="button"
           onClick={() => setQuickCreateOpen((prev) => !prev)}
           disabled={quickCreateSubmitting}
           className="rounded-lg border border-border bg-surface2 px-2 py-1 text-[11px] font-semibold text-text2 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-60"
         >
-          {quickCreateOpen ? "Kapat" : "+ Musteri Ekle"}
+          {quickCreateOpen ? t("sales.closeCustomerCreate") : `+ ${t("sales.addCustomer")}`}
         </button>
       </div>
 
       <CustomerInfinityDropdown
         value={customerId}
-        onChange={(value) => {
-          onClearCustomerError();
-          onCustomerIdChange(value);
-        }}
+        onChange={onCustomerIdChange}
         onSelectCustomer={onCustomerSelected}
         refreshKey={customerDropdownRefreshKey}
-        placeholder="Musteri secin"
+        placeholder={t("sales.customerPlaceholder")}
       />
       {customerError && <p className="mt-1 text-xs text-error">{customerError}</p>}
 
       {customerId && (
         <div className="mt-2 rounded-xl border border-border bg-surface2/40 p-2 text-xs text-text2">
-          <div>Ad Soyad: {[customerName, customerSurname].filter(Boolean).join(" ") || "-"}</div>
-          <div>Telefon: {customerPhoneNumber || "-"}</div>
-          <div>E-posta: {customerEmail || "-"}</div>
+          <div>{t("sales.fullNameLabel")}: {[customerName, customerSurname].filter(Boolean).join(" ") || "-"}</div>
+          <div>{t("customers.colPhone")}: {customerPhoneNumber || "-"}</div>
+          <div>{t("customers.colEmail")}: {customerEmail || "-"}</div>
         </div>
       )}
 
       {quickCreateOpen && (
         <div className="mt-3 rounded-xl border border-border bg-surface2/40 p-3">
           <div className="grid gap-2 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Isim *</label>
+            <FormField label={`${t("customers.colName")} *`}>
               <input
                 type="text"
                 value={quickForm.name}
                 onChange={(event) => onChangeQuickField("name", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Soyisim *</label>
+            </FormField>
+            <FormField label={`${t("customers.surname")} *`}>
               <input
                 type="text"
                 value={quickForm.surname}
                 onChange={(event) => onChangeQuickField("surname", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Telefon</label>
+            </FormField>
+            <FormField label={t("customers.colPhone")}>
               <input
                 type="text"
                 value={quickForm.phoneNumber}
                 onChange={(event) => onChangeQuickField("phoneNumber", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">E-posta</label>
+            </FormField>
+            <FormField label={t("customers.colEmail")}>
               <input
                 type="email"
                 value={quickForm.email}
                 onChange={(event) => onChangeQuickField("email", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Ulke</label>
+            </FormField>
+            <FormField label={t("customers.country")}>
               <input
                 type="text"
                 value={quickForm.country}
                 onChange={(event) => onChangeQuickField("country", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Sehir</label>
+            </FormField>
+            <FormField label={t("customers.city")}>
               <input
                 type="text"
                 value={quickForm.city}
                 onChange={(event) => onChangeQuickField("city", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Ilce</label>
+            </FormField>
+            <FormField label={t("customers.district")}>
               <input
                 type="text"
                 value={quickForm.district}
                 onChange={(event) => onChangeQuickField("district", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Cinsiyet</label>
+            </FormField>
+            <FormField label={t("customers.gender")}>
               <SearchableDropdown
-                options={GENDER_OPTIONS}
+                options={genderOptions}
                 value={quickForm.gender}
                 onChange={(value) => onChangeQuickField("gender", value)}
-                placeholder="Cinsiyet secin"
-                emptyOptionLabel="Cinsiyet secin"
+                placeholder={t("customers.genderPlaceholder")}
+                emptyOptionLabel={t("customers.genderPlaceholder")}
               />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">Dogum Tarihi</label>
+            </FormField>
+            <FormField label={t("customers.birthDate")}>
               <input
                 type="date"
                 value={quickForm.birthDate}
                 onChange={(event) => onChangeQuickField("birthDate", event.target.value)}
                 className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
-            </div>
+            </FormField>
             <div className="md:col-span-2">
-              <label className="mb-1 block text-xs font-semibold text-muted">Adres</label>
-              <input
-                type="text"
+              <TextareaField
+                label={t("customers.address")}
                 value={quickForm.address}
-                onChange={(event) => onChangeQuickField("address", event.target.value)}
-                className="h-9 w-full rounded-xl border border-border bg-surface px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                onChange={(value) => onChangeQuickField("address", value)}
+                placeholder={t("customers.addressPlaceholder")}
+                rows={3}
+                textareaClassName="min-h-[80px] w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
               />
             </div>
           </div>
@@ -264,14 +254,14 @@ export default function SaleQuickCustomerCreate({
 
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button
-              label="Vazgec"
+              label={t("common.cancel")}
               variant="secondary"
               className="px-2 py-1 text-xs"
               onClick={onCloseQuickCreate}
               disabled={quickCreateSubmitting}
             />
             <Button
-              label={quickCreateSubmitting ? "Ekleniyor..." : "Musteri Ekle"}
+              label={quickCreateSubmitting ? t("sales.quickCustomerCreating") : t("sales.addCustomer")}
               variant="primarySolid"
               className="px-2 py-1 text-xs"
               onClick={onSubmitQuickCreate}

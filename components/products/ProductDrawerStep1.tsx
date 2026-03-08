@@ -2,14 +2,17 @@
 
 import type { Currency } from "@/lib/products";
 import { formatPrice } from "@/lib/format";
-import { CURRENCY_OPTIONS, type ProductForm, type FormErrors } from "@/components/products/types";
+import { CURRENCY_FILTER_OPTIONS, type ProductForm, type FormErrors } from "@/components/products/types";
 import InputField from "@/components/ui/InputField";
+import FormField from "@/components/ui/FormField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchableMultiSelectDropdown from "@/components/ui/SearchableMultiSelectDropdown";
 import SupplierInfiniteDropdown from "@/components/products/SupplierInfiniteDropdown";
 import CollapsiblePanel from "@/components/ui/CollapsiblePanel";
 import ToggleSwitch from "@/components/ui/ToggleSwitch";
 import ModeToggle from "@/components/ui/ModeToggle";
+import TextareaField from "@/components/ui/TextareaField";
+import { useLang } from "@/context/LangContext";
 
 type ProductDrawerStep1Props = {
   form: ProductForm;
@@ -44,6 +47,8 @@ export default function ProductDrawerStep1({
   onClearError,
   canTenantOnly
 }: ProductDrawerStep1Props) {
+  const { t } = useLang();
+
   return (
     <>
       {/* Step indicator */}
@@ -54,14 +59,16 @@ export default function ProductDrawerStep1({
 
       {canTenantOnly && (
         <CollapsiblePanel
-          title="Magaza Kapsami"
+          title={t("products.scopeTitle")}
           open={storeScopeOpen}
           onToggle={onToggleStoreScope}
-          toggleAriaLabel={storeScopeOpen ? "Magaza kapsamini daralt" : "Magaza kapsamini genislet"}
+          toggleAriaLabel={
+            storeScopeOpen ? t("products.scopeCollapseAria") : t("products.scopeExpandAria")
+          }
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-xl border border-border bg-surface2/40 px-3 py-2.5">
-              <span className="text-xs font-semibold text-muted">Tum Magazalara Uygula</span>
+              <span className="text-xs font-semibold text-muted">{t("products.applyAllStores")}</span>
               <ToggleSwitch
                 checked={form.applyToAllStores}
                 onChange={(checked) => {
@@ -75,8 +82,7 @@ export default function ProductDrawerStep1({
             </div>
 
             {!form.applyToAllStores && (
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-muted">Magaza Secimi *</label>
+              <FormField label={t("products.storeSelectionLabel")}>
                 <SearchableMultiSelectDropdown
                   options={storeOptions}
                   values={form.storeIds}
@@ -84,30 +90,32 @@ export default function ProductDrawerStep1({
                     onClearError("storeIds");
                     onFormPatch({ storeIds: values });
                   }}
-                  placeholder="Magaza secin"
+                  placeholder={t("products.storeSelectionPlaceholder")}
                 />
                 {errors.storeIds && (
                   <p className="text-xs text-error">{errors.storeIds}</p>
                 )}
-              </div>
+              </FormField>
             )}
           </div>
         </CollapsiblePanel>
       )}
 
       <CollapsiblePanel
-        title="Urun Bilgileri"
+        title={t("products.infoTitle")}
         open={productInfoOpen}
         onToggle={onToggleProductInfo}
-        toggleAriaLabel={productInfoOpen ? "Urun bilgilerini daralt" : "Urun bilgilerini genislet"}
+        toggleAriaLabel={
+          productInfoOpen ? t("products.infoCollapseAria") : t("products.infoExpandAria")
+        }
       >
         <div className="space-y-4">
           <InputField
-            label="Urun Adi *"
+            label={t("products.nameLabel")}
             type="text"
             value={form.name}
             onChange={(v) => onFormChange("name", v)}
-            placeholder="Basic Pantolon"
+            placeholder={t("products.namePlaceholder")}
             error={errors.name}
           />
 
@@ -116,63 +124,59 @@ export default function ProductDrawerStep1({
             type="text"
             value={form.sku}
             onChange={(v) => onFormChange("sku", v)}
-            placeholder="Pantolon-BASIC"
+            placeholder="BASIC-PANTS"
             error={errors.sku}
           />
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Urun Kategorisi</label>
+          <FormField label={t("products.categoryLabel")}>
             <SearchableDropdown
               options={categoryOptions}
               value={form.categoryId}
               onChange={(v) => onFormChange("categoryId", v)}
-              placeholder="Kategori secin"
-              emptyOptionLabel="Kategori Yok"
+              placeholder={t("products.categoryPlaceholder")}
+              emptyOptionLabel={t("products.noCategory")}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Tedarikci</label>
+          <FormField label={t("products.supplierLabel")}>
             <SupplierInfiniteDropdown
               value={form.supplierId}
               onChange={(v) => onFormChange("supplierId", v)}
-              placeholder="Tedarikci secin"
+              placeholder={t("products.supplierPlaceholder")}
             />
-          </div>
+          </FormField>
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Aciklama</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => onFormChange("description", e.target.value)}
-              className="min-h-[80px] w-full rounded-xl2 border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/60"
-              placeholder="Pamuklu basic pantolon"
-            />
-          </div>
+          <TextareaField
+            label={t("common.description")}
+            value={form.description}
+            onChange={(value) => onFormChange("description", value)}
+            placeholder={t("products.descriptionPlaceholder")}
+            rows={4}
+            textareaClassName="min-h-[80px] w-full rounded-xl2 border border-border bg-surface2 px-3 py-2.5 text-sm text-text outline-none focus:border-primary/60"
+          />
 
           <InputField
-            label="Gorsel URL"
+            label={t("products.imageLabel")}
             type="text"
             value={form.image}
             onChange={(v) => onFormChange("image", v)}
-            placeholder="https://example.com/image.jpg"
+            placeholder={t("products.imagePlaceholder")}
           />
 
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Para Birimi</label>
+          <FormField label={t("products.currencyLabel")}>
             <SearchableDropdown
-              options={CURRENCY_OPTIONS}
+              options={CURRENCY_FILTER_OPTIONS}
               value={form.currency}
               onChange={(v) => onFormChange("currency", (v || "TRY") as Currency)}
-              placeholder="Para birimi secin"
+              placeholder={t("products.currencyPlaceholder")}
               showEmptyOption={false}
               allowClear={false}
             />
-          </div>
+          </FormField>
 
           <div className="grid grid-cols-2 gap-3">
             <InputField
-              label="Birim Satis Fiyati *"
+              label={t("products.salePriceRequiredLabel")}
               type="text"
               value={form.unitPrice}
               onChange={(v) => onFormChange("unitPrice", v)}
@@ -180,7 +184,7 @@ export default function ProductDrawerStep1({
               error={errors.unitPrice}
             />
             <InputField
-              label="Alis Fiyati *"
+              label={t("products.purchasePriceRequiredLabel")}
               type="text"
               value={form.purchasePrice}
               onChange={(v) => onFormChange("purchasePrice", v)}
@@ -191,7 +195,7 @@ export default function ProductDrawerStep1({
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">Vergi</label>
+              <label className="text-xs font-semibold text-muted">{t("products.tax")}</label>
               <div className="flex items-center gap-2">
                 <ModeToggle
                   mode={form.taxMode}
@@ -220,7 +224,7 @@ export default function ProductDrawerStep1({
               )}
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted">Indirim</label>
+              <label className="text-xs font-semibold text-muted">{t("products.discount")}</label>
               <div className="flex items-center gap-2">
                 <ModeToggle
                   mode={form.discountMode}
@@ -251,11 +255,11 @@ export default function ProductDrawerStep1({
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Satir Toplami (Otomatik)</label>
+            <label className="text-xs font-semibold text-muted">{t("products.lineTotalAuto")}</label>
             <div className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none flex items-center">
               {calculatedLineTotal == null ? "-" : formatPrice(calculatedLineTotal)}
             </div>
-            <p className="text-[11px] text-muted">Bu hesaplama degiskenlik gosterebilir. Kesin tutar backend tarafinda hesaplanir.</p>
+            <p className="text-[11px] text-muted">{t("products.lineTotalHint")}</p>
             {errors.lineTotal && <p className="text-xs text-error">{errors.lineTotal}</p>}
           </div>
         </div>

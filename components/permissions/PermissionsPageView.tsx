@@ -8,7 +8,9 @@ import RolesTable from "@/components/permissions/RolesTable";
 import PermissionDrawer from "@/components/permissions/PermissionDrawer";
 import RolePermissionsDrawer from "@/components/permissions/RolePermissionsDrawer";
 import type { PermissionsTab } from "@/components/permissions/types";
+import TableFooterPagination from "@/components/ui/TableFooterPagination";
 import { cn } from "@/lib/cn";
+import { useLang } from "@/context/LangContext";
 
 type PermissionsPageViewProps = {
   activeTab: PermissionsTab;
@@ -31,12 +33,14 @@ export default function PermissionsPageView({
   permissionDrawerProps,
   rolePermissionsDrawerProps,
 }: PermissionsPageViewProps) {
+  const { t } = useLang();
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-text">Yetki Yönetimi</h1>
-        <p className="text-sm text-muted">Sistem yetkilerini ve rol atamalarını yönetin.</p>
-      </div>
+      <PermissionsFilters
+        {...filtersProps}
+        showActions={activeTab === "permissions"}
+      />
 
       <div className="w-fit rounded-xl border border-border bg-surface p-1">
         <div className="flex gap-1">
@@ -47,7 +51,7 @@ export default function PermissionsPageView({
               activeTab === "permissions" ? "bg-primary text-white" : "text-muted hover:text-text",
             )}
           >
-            Yetkiler
+            {t("permissions.tabPermissions")}
           </button>
           <button
             onClick={() => onTabChange("roles")}
@@ -56,17 +60,16 @@ export default function PermissionsPageView({
               activeTab === "roles" ? "bg-primary text-white" : "text-muted hover:text-text",
             )}
           >
-            Roller
+            {t("permissions.tabRoles")}
           </button>
         </div>
       </div>
 
       {activeTab === "permissions" ? (
         <>
-          <PermissionsFilters {...filtersProps} />
           <PermissionsTable
             {...permissionsTableProps}
-            footer={paginationProps ? <TablePagination {...paginationProps} /> : null}
+            footer={<TableFooterPagination paginationProps={paginationProps} />}
           />
         </>
       ) : (

@@ -2,11 +2,14 @@
 
 import Drawer from "@/components/ui/Drawer";
 import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import TextareaField from "@/components/ui/TextareaField";
 import { CURRENCY_OPTIONS } from "@/components/products/types";
-import { PAYMENT_METHOD_OPTIONS } from "@/components/sales/types";
+import { getPaymentMethodOptions } from "@/components/sales/types";
 import type { Currency } from "@/lib/products";
 import type { PaymentMethod } from "@/lib/sales";
+import { useLang } from "@/context/LangContext";
 
 type SalePaymentDrawerProps = {
   open: boolean;
@@ -45,24 +48,27 @@ export default function SalePaymentDrawer({
   onPaymentCurrencyChange,
   onPaymentNoteInputChange,
 }: SalePaymentDrawerProps) {
+  const { t } = useLang();
+  const paymentMethodOptions = getPaymentMethodOptions(t);
+
   return (
     <Drawer
       open={open}
       onClose={onClose}
       side="right"
-      title={editingPaymentId ? "Odeme Guncelle" : "Odeme Ekle"}
-      description="Satis fisine odeme adimi ekleyin veya duzenleyin."
+      title={editingPaymentId ? t("sales.updatePayment") : t("sales.addPayment")}
+      description={t("sales.paymentDrawerDescription")}
       closeDisabled={paymentSubmitting}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button
-            label="Iptal"
+            label={t("common.cancel")}
             onClick={onClose}
             variant="secondary"
             disabled={paymentSubmitting}
           />
           <Button
-            label={paymentSubmitting ? "Kaydediliyor..." : "Kaydet"}
+            label={paymentSubmitting ? t("common.saving") : t("common.save")}
             onClick={onSubmit}
             variant="primarySolid"
             loading={paymentSubmitting}
@@ -71,8 +77,7 @@ export default function SalePaymentDrawer({
       }
     >
       <div className="space-y-4 p-5">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Tutar *</label>
+        <FormField label={`${t("sales.amount")} *`}>
           <input
             type="number"
             min={0}
@@ -81,32 +86,29 @@ export default function SalePaymentDrawer({
             onChange={(event) => onPaymentAmountChange(event.target.value)}
             className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Odeme Tarihi</label>
+        <FormField label={t("sales.paymentDate")}>
           <input
             type="date"
             value={paymentPaidAtInput}
             onChange={(event) => onPaymentPaidAtInputChange(event.target.value)}
             className="h-10 w-full rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Odeme Yontemi *</label>
+        <FormField label={`${t("sales.paymentMethod")} *`}>
           <SearchableDropdown
-            options={PAYMENT_METHOD_OPTIONS}
+            options={paymentMethodOptions}
             value={paymentMethodInput}
             onChange={onPaymentMethodInputChange}
-            placeholder="Odeme yontemi secin"
+            placeholder={t("sales.paymentMethodPlaceholder")}
             showEmptyOption={false}
             allowClear={false}
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Para Birimi *</label>
+        <FormField label={`${t("sales.currency")} *`}>
           <SearchableDropdown
             options={CURRENCY_OPTIONS}
             value={paymentCurrency}
@@ -114,16 +116,15 @@ export default function SalePaymentDrawer({
             showEmptyOption={false}
             allowClear={false}
           />
-        </div>
+        </FormField>
 
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted">Not</label>
-          <textarea
-            value={paymentNoteInput}
-            onChange={(event) => onPaymentNoteInputChange(event.target.value)}
-            className="min-h-22 w-full rounded-xl border border-border bg-surface2 px-3 py-2 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-          />
-        </div>
+        <TextareaField
+          label={t("stock.note")}
+          value={paymentNoteInput}
+          onChange={onPaymentNoteInputChange}
+          placeholder={t("stock.notePlaceholder")}
+          textareaClassName="min-h-22 w-full rounded-xl border border-border bg-surface2 px-3 py-2 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        />
 
         {paymentFormError && <p className="text-sm text-error">{paymentFormError}</p>}
       </div>

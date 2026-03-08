@@ -1,203 +1,188 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import {
+  ReportDateInput,
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+} from "@/components/reports/ReportFilters";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import ReportSummaryCards from "@/components/reports/ReportSummaryCards";
+import {
+  ReportTable,
+  ReportTableBody,
+  ReportTableCell,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
+import { formatPrice } from "@/lib/format";
+import { getDefaultReportDateRange } from "@/lib/report-dates";
 import {
   getReportDiscountSummary,
   type DiscountByCampaign,
   type DiscountByStore,
 } from "@/lib/reports";
-import { formatPrice } from "@/lib/format";
 
-const today = new Date().toISOString().slice(0, 10);
-const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+const defaultDateRange = getDefaultReportDateRange();
 
 export default function DiscountSummaryPage() {
-  const [startDate, setStartDate] = useState(monthAgo);
-  const [endDate, setEndDate] = useState(today);
-  const [totalDiscount, setTotalDiscount] = useState<number | undefined>(undefined);
-  const [byCampaign, setByCampaign] = useState<DiscountByCampaign[]>([]);
-  const [byStore, setByStore] = useState<DiscountByStore[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [startDateInput, setStartDateInput] = useState(defaultDateRange.startDate);
+  const [endDateInput, setEndDateInput] = useState(defaultDateRange.endDate);
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportDiscountSummary({ startDate, endDate });
-      setTotalDiscount(res.totalDiscount);
-      setByCampaign(res.byCampaign ?? []);
-      setByStore(res.byStore ?? []);
-    } catch {
-      setTotalDiscount(undefined);
-      setByCampaign([]);
-      setByStore([]);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadData = useCallback(async () => {
+    const res = await getReportDiscountSummary({ startDate, endDate });
+    return {
+      totalDiscount: res.totalDiscount,
+      byCampaign: res.byCampaign ?? [],
+      byStore: res.byStore ?? [],
+    };
   }, [startDate, endDate]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<{
+    totalDiscount?: number;
+    byCampaign: DiscountByCampaign[];
+    byStore: DiscountByStore[];
+  }>({
+    initialData: {
+      totalDiscount: undefined,
+      byCampaign: [],
+      byStore: [],
+    },
+    load: loadData,
+  });
 
+  const { totalDiscount, byCampaign, byStore } = data;
   const hasData = byCampaign.length > 0 || byStore.length > 0;
   const campaignHasCurrency = byCampaign.some((item) => Boolean(item.currency));
   const storeHasCurrency = byStore.some((item) => Boolean(item.currency));
 
+  const handleFilter = () => {
+    if (startDateInput === startDate && endDateInput === endDate) {
+      void refresh();
+      return;
+    }
+
+    setStartDate(startDateInput);
+    setEndDate(endDateInput);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <Link
-          href="/reports"
-          className="mb-2 inline-block text-sm text-primary hover:underline"
-        >
-          &larr; Raporlar
-        </Link>
-        <h1 className="text-xl font-semibold text-text">Indirim Ozeti</h1>
-        <p className="text-sm text-muted">
-          Kampanya ve magaza bazli indirim analizi
-        </p>
-      </div>
+      <ReportPageHeader
+        title="Indirim Ozeti"
+        description="Kampanya ve magaza bazli indirim analizi"
+      />
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Baslangic
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+      <ReportFilters>
+        <ReportFilterField label="Baslangic">
+          <ReportDateInput
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Bitis
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        </ReportFilterField>
+        <ReportFilterField label="Bitis">
+          <ReportDateInput
+            value={endDateInput}
+            onChange={(e) => setEndDateInput(e.target.value)}
           />
-        </div>
-        <button
-          onClick={() => void fetchData()}
-          disabled={loading}
-          className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "Yukleniyor..." : "Filtrele"}
-        </button>
-      </div>
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">Yukleniyor...</p>
-        </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      ) : !hasData ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">
-            Secilen tarih araliginda veri bulunamadi.
-          </p>
-        </div>
-      ) : (
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={!hasData}
+        emptyMessage="Secilen tarih araliginda veri bulunamadi."
+      >
         <>
-          {/* Total discount */}
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              Toplam Indirim
-            </p>
-            <p className="mt-2 text-2xl font-bold text-text">
-              {formatPrice(totalDiscount)}
-            </p>
-          </div>
+          <ReportSummaryCards
+            items={[{ label: "Toplam Indirim", value: formatPrice(totalDiscount) }]}
+            gridClassName="sm:grid-cols-1"
+          />
 
-          {/* Campaign table */}
           {byCampaign.length > 0 && (
-            <div className="overflow-x-auto rounded-2xl border border-border bg-surface p-6 shadow-glow">
+            <ReportTableSurface padded>
               <h2 className="mb-4 text-base font-semibold text-text">
                 Kampanya Bazli
               </h2>
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted">
-                    <th className="pb-3 pr-4">Kampanya Kodu</th>
-                    {campaignHasCurrency && <th className="pb-3 pr-4">PB</th>}
-                    <th className="pb-3 pr-4">Toplam Indirim</th>
-                    <th className="pb-3">Satis Adedi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {byCampaign.map((item, idx) => (
-                    <tr key={idx} className="text-text">
-                      <td className="py-3 pr-4 font-medium">
-                        {item.campaignCode ?? "Kampanyasiz"}
-                      </td>
-                      {campaignHasCurrency && (
-                        <td className="py-3 pr-4">
-                          {item.currency ?? "-"}
-                        </td>
-                      )}
-                      <td className="py-3 pr-4">
-                        {formatPrice(item.totalDiscount)}
-                      </td>
-                      <td className="py-3">{item.saleCount ?? 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              <ReportTableScroll>
+                <ReportTable>
+                  <ReportTableHead>
+                    <ReportTableHeadRow>
+                      <ReportTableHeaderCell compact>Kampanya Kodu</ReportTableHeaderCell>
+                      {campaignHasCurrency && <ReportTableHeaderCell compact>PB</ReportTableHeaderCell>}
+                      <ReportTableHeaderCell compact>Toplam Indirim</ReportTableHeaderCell>
+                      <ReportTableHeaderCell compact className="pr-0">Satis Adedi</ReportTableHeaderCell>
+                    </ReportTableHeadRow>
+                  </ReportTableHead>
+                  <ReportTableBody divided>
+                    {byCampaign.map((item, index) => (
+                      <ReportTableRow key={index} className="text-text">
+                        <ReportTableCell compact className="font-medium">
+                          {item.campaignCode ?? "Kampanyasiz"}
+                        </ReportTableCell>
+                        {campaignHasCurrency && <ReportTableCell compact>{item.currency ?? "-"}</ReportTableCell>}
+                        <ReportTableCell compact>{formatPrice(item.totalDiscount)}</ReportTableCell>
+                        <ReportTableCell compact className="pr-0">{item.saleCount ?? 0}</ReportTableCell>
+                      </ReportTableRow>
+                    ))}
+                  </ReportTableBody>
+                </ReportTable>
+              </ReportTableScroll>
+            </ReportTableSurface>
           )}
 
-          {/* Store table */}
           {byStore.length > 0 && (
-            <div className="overflow-x-auto rounded-2xl border border-border bg-surface p-6 shadow-glow">
+            <ReportTableSurface padded>
               <h2 className="mb-4 text-base font-semibold text-text">
                 Magaza Bazli
               </h2>
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted">
-                    <th className="pb-3 pr-4">Magaza</th>
-                    {storeHasCurrency && <th className="pb-3 pr-4">PB</th>}
-                    <th className="pb-3 pr-4">Toplam Indirim</th>
-                    <th className="pb-3">Satis Adedi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {byStore.map((item, idx) => (
-                    <tr key={idx} className="text-text">
-                      <td className="py-3 pr-4 font-medium">
-                        {item.storeName ?? "-"}
-                      </td>
-                      {storeHasCurrency && (
-                        <td className="py-3 pr-4">
-                          {item.currency ?? "-"}
-                        </td>
-                      )}
-                      <td className="py-3 pr-4">
-                        {formatPrice(item.totalDiscount)}
-                      </td>
-                      <td className="py-3">{item.saleCount ?? 0}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              <ReportTableScroll>
+                <ReportTable>
+                  <ReportTableHead>
+                    <ReportTableHeadRow>
+                      <ReportTableHeaderCell compact>Magaza</ReportTableHeaderCell>
+                      {storeHasCurrency && <ReportTableHeaderCell compact>PB</ReportTableHeaderCell>}
+                      <ReportTableHeaderCell compact>Toplam Indirim</ReportTableHeaderCell>
+                      <ReportTableHeaderCell compact className="pr-0">Satis Adedi</ReportTableHeaderCell>
+                    </ReportTableHeadRow>
+                  </ReportTableHead>
+                  <ReportTableBody divided>
+                    {byStore.map((item, index) => (
+                      <ReportTableRow key={index} className="text-text">
+                        <ReportTableCell compact className="font-medium">
+                          {item.storeName ?? "-"}
+                        </ReportTableCell>
+                        {storeHasCurrency && <ReportTableCell compact>{item.currency ?? "-"}</ReportTableCell>}
+                        <ReportTableCell compact>{formatPrice(item.totalDiscount)}</ReportTableCell>
+                        <ReportTableCell compact className="pr-0">{item.saleCount ?? 0}</ReportTableCell>
+                      </ReportTableRow>
+                    ))}
+                  </ReportTableBody>
+                </ReportTable>
+              </ReportTableScroll>
+            </ReportTableSurface>
           )}
         </>
-      )}
+      </ReportAsyncState>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { useStockReceiveFlow } from "@/components/stock/useStockReceiveFlow";
 import { useStockAdjustFlow } from "@/components/stock/useStockAdjustFlow";
 import { useStockTransferFlow } from "@/components/stock/useStockTransferFlow";
 import { useStockProductDrawer } from "@/components/stock/useStockProductDrawer";
+import { useStatusFeedback } from "@/hooks/useStatusFeedback";
 
 export default function StockPage() {
   const { t } = useLang();
@@ -22,6 +23,7 @@ export default function StockPage() {
   const canTenantOnly = can("TENANT_ONLY");
   const stores = useStores();
   const isMobile = !useMediaQuery();
+  const feedback = useStatusFeedback();
 
   const listState = useStockListState({
     canReadPage,
@@ -34,7 +36,7 @@ export default function StockPage() {
     onRefreshSummary: listState.fetchTenantSummary,
     onRefreshVariantStores: listState.fetchVariantStores,
     resolveVariantStores: listState.resolveVariantStores,
-    onSuccess: listState.setSuccess,
+    onSuccess: feedback.showSuccess,
     atLeastOneStoreRowMessage: t("stock.atLeastOneStoreRow"),
     receiveSuccessMessage: t("stock.receiveSuccess"),
     receiveErrorMessage: t("stock.receiveError"),
@@ -47,7 +49,7 @@ export default function StockPage() {
     onRefreshSummary: listState.fetchTenantSummary,
     onRefreshVariantStores: listState.fetchVariantStores,
     resolveVariantStores: listState.resolveVariantStores,
-    onSuccess: listState.setSuccess,
+    onSuccess: feedback.showSuccess,
     atLeastOneStoreRowMessage: t("stock.atLeastOneStoreRow"),
     sameStoreTwiceMessage: t("stock.sameStoreTwice"),
     adjustSuccessMessage: t("stock.adjustSuccess"),
@@ -58,7 +60,7 @@ export default function StockPage() {
     onRefreshSummary: listState.fetchTenantSummary,
     onRefreshVariantStores: listState.fetchVariantStores,
     resolveVariantStores: listState.resolveVariantStores,
-    onSuccess: listState.setSuccess,
+    onSuccess: feedback.showSuccess,
     sourceStoreRequiredMessage: t("stock.sourceStoreRequired"),
     targetStoreRequiredMessage: t("stock.targetStoreRequired"),
     sameStoreErrorMessage: t("stock.sameStoreError"),
@@ -70,7 +72,7 @@ export default function StockPage() {
 
   const productDrawer = useStockProductDrawer({
     onRefreshSummary: listState.fetchTenantSummary,
-    onSuccess: listState.setSuccess,
+    onSuccess: feedback.showSuccess,
   });
 
   const storeOptions = useMemo(
@@ -82,7 +84,7 @@ export default function StockPage() {
 
   return (
     <StockPageView
-      success={listState.success}
+      success={feedback.success}
       filtersProps={{
         searchTerm: listState.searchTerm,
         onSearchChange: (value) => listState.setSearchTerm(value),

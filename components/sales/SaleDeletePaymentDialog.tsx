@@ -1,6 +1,7 @@
 "use client";
 
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useLang } from "@/context/LangContext";
 
 type SaleDeletePaymentDialogProps = {
   open: boolean;
@@ -15,15 +16,17 @@ export default function SaleDeletePaymentDialog({
   onConfirm,
   onClose,
 }: SaleDeletePaymentDialogProps) {
+  const { t } = useLang();
+
   return (
     <ConfirmDialog
       open={open}
-      title="Odeme Kaydini Sil"
-      description="Bu odeme kaydini silmek istiyor musunuz?"
-      confirmLabel="Evet"
-      cancelLabel="Hayir"
+      title={t("sales.deletePaymentTitle")}
+      description={t("sales.deletePaymentDescription")}
+      confirmLabel={t("sales.deletePaymentConfirm")}
+      cancelLabel={t("common.cancel")}
       loading={loading}
-      loadingLabel="Siliniyor..."
+      loadingLabel={t("sales.deleting")}
       onConfirm={onConfirm}
       onClose={onClose}
     />

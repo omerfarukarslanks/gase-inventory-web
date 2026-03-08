@@ -1,21 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
 import { getReportRevenueTrend, type RevenueTrendItem } from "@/lib/reports";
+import ReportAsyncState from "@/components/reports/ReportAsyncState";
+import {
+  ReportDateInput,
+  ReportFilterButton,
+  ReportFilterField,
+  ReportFilters,
+} from "@/components/reports/ReportFilters";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
+import ReportPageHeader from "@/components/reports/ReportPageHeader";
+import {
+  ReportTable,
+  ReportTableBody,
+  ReportTableCell,
+  ReportTableHead,
+  ReportTableHeaderCell,
+  ReportTableHeadRow,
+  ReportTableRow,
+  ReportTableScroll,
+  ReportTableSurface,
+} from "@/components/reports/ReportTable";
+import { useAsyncReportData } from "@/hooks/useAsyncReportData";
 import { formatPrice } from "@/lib/format";
+import { formatReportPercent } from "@/lib/report-format";
+import { getDefaultReportDateRange } from "@/lib/report-dates";
 
-const today = new Date().toISOString().slice(0, 10);
-const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+const defaultDateRange = getDefaultReportDateRange();
 
 export default function RevenueTrendPage() {
-  const [startDate, setStartDate] = useState(monthAgo);
-  const [endDate, setEndDate] = useState(today);
+  const [startDateInput, setStartDateInput] = useState(defaultDateRange.startDate);
+  const [endDateInput, setEndDateInput] = useState(defaultDateRange.endDate);
+  const [groupByInput, setGroupByInput] = useState<"day" | "week" | "month">("day");
+  const [startDate, setStartDate] = useState(defaultDateRange.startDate);
+  const [endDate, setEndDate] = useState(defaultDateRange.endDate);
   const [groupBy, setGroupBy] = useState<"day" | "week" | "month">("day");
-  const [items, setItems] = useState<RevenueTrendItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const groupByOptions = [
     { value: "day", label: "Gun" },
@@ -23,74 +43,63 @@ export default function RevenueTrendPage() {
     { value: "month", label: "Ay" },
   ] as const;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await getReportRevenueTrend({ startDate, endDate, groupBy });
-      setItems(res.data ?? []);
-    } catch {
-      setItems([]);
-      setError("Veriler yuklenemedi. Lutfen tekrar deneyin.");
-    } finally {
-      setLoading(false);
-    }
+  const loadItems = useCallback(async () => {
+    const res = await getReportRevenueTrend({ startDate, endDate, groupBy });
+    return res.data ?? [];
   }, [startDate, endDate, groupBy]);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
+  const {
+    data: items,
+    loading,
+    error,
+    refresh,
+  } = useAsyncReportData<RevenueTrendItem[]>({
+    initialData: [],
+    load: loadItems,
+  });
 
   const hasCurrency = items.some((item) => Boolean(item.currency));
 
+  const handleFilter = () => {
+    if (
+      startDateInput === startDate &&
+      endDateInput === endDate &&
+      groupByInput === groupBy
+    ) {
+      void refresh();
+      return;
+    }
+
+    setStartDate(startDateInput);
+    setEndDate(endDateInput);
+    setGroupBy(groupByInput);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <Link
-          href="/reports"
-          className="mb-2 inline-block text-sm text-primary hover:underline"
-        >
-          &larr; Raporlar
-        </Link>
-        <h1 className="text-xl font-semibold text-text">Gelir Trendi</h1>
-        <p className="text-sm text-muted">
-          Secilen tarih araliginda donem bazli gelir degisimi
-        </p>
-      </div>
+      <ReportPageHeader
+        title="Gelir Trendi"
+        description="Secilen tarih araliginda donem bazli gelir degisimi"
+      />
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-surface p-4">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Baslangic
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+      <ReportFilters>
+        <ReportFilterField label="Baslangic">
+          <ReportDateInput
+            value={startDateInput}
+            onChange={(e) => setStartDateInput(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Bitis
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="h-10 rounded-xl border border-border bg-surface2 px-3 text-sm text-text outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        </ReportFilterField>
+        <ReportFilterField label="Bitis">
+          <ReportDateInput
+            value={endDateInput}
+            onChange={(e) => setEndDateInput(e.target.value)}
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-muted">
-            Gruplama
-          </label>
+        </ReportFilterField>
+        <ReportFilterField label="Gruplama">
           <SearchableDropdown
             options={[...groupByOptions]}
-            value={groupBy}
-            onChange={(value) => setGroupBy(value as "day" | "week" | "month")}
+            value={groupByInput}
+            onChange={(value) => setGroupByInput(value as "day" | "week" | "month")}
             placeholder="Gruplama"
             showEmptyOption={false}
             allowClear={false}
@@ -99,65 +108,50 @@ export default function RevenueTrendPage() {
             toggleAriaLabel="Gelir trendi gruplama listesini ac"
             className="w-[130px]"
           />
-        </div>
-        <button
-          onClick={() => void fetchData()}
-          disabled={loading}
-          className="h-10 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "Yukleniyor..." : "Filtrele"}
-        </button>
-      </div>
+        </ReportFilterField>
+        <ReportFilterButton
+          onClick={handleFilter}
+          loading={loading}
+        />
+      </ReportFilters>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">Yukleniyor...</p>
-        </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-6 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-          {error}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex items-center justify-center rounded-2xl border border-border bg-surface p-12">
-          <p className="text-sm text-muted">
-            Secilen tarih araliginda veri bulunamadi.
-          </p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface p-6 shadow-glow">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs font-semibold uppercase tracking-wide text-muted">
-                <th className="pb-3 pr-4">Donem</th>
-                <th className="pb-3 pr-4">Satis Adedi</th>
-                {hasCurrency && <th className="pb-3 pr-4">PB</th>}
-                <th className="pb-3 pr-4">Toplam Gelir</th>
-                <th className="pb-3 pr-4">Ort. Sepet</th>
-                <th className="pb-3 pr-4">Degisim</th>
-                <th className="pb-3">Trend</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {items.map((item, idx) => (
-                <tr key={idx} className="text-text">
-                  <td className="py-3 pr-4 font-medium">{item.period ?? "-"}</td>
-                  <td className="py-3 pr-4">{item.saleCount ?? 0}</td>
-                  {hasCurrency && <td className="py-3 pr-4">{item.currency ?? "-"}</td>}
-                  <td className="py-3 pr-4">{formatPrice(item.totalRevenue)}</td>
-                  <td className="py-3 pr-4">{formatPrice(item.averageBasket)}</td>
-                  <td className="py-3 pr-4">
-                    {item.changePercent != null
-                      ? item.changePercent.toFixed(1) + "%"
-                      : "-"}
-                  </td>
-                  <td className="py-3">{item.trend ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ReportAsyncState
+        loading={loading}
+        error={error}
+        isEmpty={items.length === 0}
+        emptyMessage="Secilen tarih araliginda veri bulunamadi."
+      >
+        <ReportTableSurface padded>
+          <ReportTableScroll>
+            <ReportTable>
+              <ReportTableHead>
+                <ReportTableHeadRow>
+                  <ReportTableHeaderCell compact>Donem</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Satis Adedi</ReportTableHeaderCell>
+                  {hasCurrency && <ReportTableHeaderCell compact>PB</ReportTableHeaderCell>}
+                  <ReportTableHeaderCell compact>Toplam Gelir</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Ort. Sepet</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact>Degisim</ReportTableHeaderCell>
+                  <ReportTableHeaderCell compact className="pr-0">Trend</ReportTableHeaderCell>
+                </ReportTableHeadRow>
+              </ReportTableHead>
+              <ReportTableBody divided>
+                {items.map((item, idx) => (
+                  <ReportTableRow key={idx} className="text-text">
+                    <ReportTableCell compact className="font-medium">{item.period ?? "-"}</ReportTableCell>
+                    <ReportTableCell compact>{item.saleCount ?? 0}</ReportTableCell>
+                    {hasCurrency && <ReportTableCell compact>{item.currency ?? "-"}</ReportTableCell>}
+                    <ReportTableCell compact>{formatPrice(item.totalRevenue)}</ReportTableCell>
+                    <ReportTableCell compact>{formatPrice(item.averageBasket)}</ReportTableCell>
+                    <ReportTableCell compact>{formatReportPercent(item.changePercent)}</ReportTableCell>
+                    <ReportTableCell compact className="pr-0">{item.trend ?? "-"}</ReportTableCell>
+                  </ReportTableRow>
+                ))}
+              </ReportTableBody>
+            </ReportTable>
+          </ReportTableScroll>
+        </ReportTableSurface>
+      </ReportAsyncState>
     </div>
   );
 }

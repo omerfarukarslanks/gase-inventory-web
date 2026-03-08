@@ -1,9 +1,12 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import FilterField from "@/components/ui/FilterField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import SearchInput from "@/components/ui/SearchInput";
-import { STATUS_FILTER_OPTIONS, parseIsActiveFilter } from "@/components/products/types";
+import { getStatusFilterOptions, parseIsActiveFilter } from "@/components/products/types";
+import { AdvancedFiltersPanel, FilterActionsRow, PageToolbar } from "@/components/ui/PageToolbar";
+import { useLang } from "@/context/LangContext";
 
 type PermissionsFiltersProps = {
   permSearch: string;
@@ -15,6 +18,7 @@ type PermissionsFiltersProps = {
   permStatusFilter: boolean | "all";
   onPermStatusFilterChange: (value: boolean | "all") => void;
   onClearFilters: () => void;
+  showActions?: boolean;
 };
 
 export default function PermissionsFilters({
@@ -27,58 +31,65 @@ export default function PermissionsFilters({
   permStatusFilter,
   onPermStatusFilterChange,
   onClearFilters,
+  showActions = true,
 }: PermissionsFiltersProps) {
+  const { t } = useLang();
+  const statusOptions = getStatusFilterOptions(t);
+
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
-          <SearchInput
-            value={permSearch}
-            onChange={onPermSearchChange}
-            placeholder="Ara..."
-            containerClassName="w-full lg:w-64"
-          />
-          <Button
-            label={showPermFilters ? "Detaylı Filtreyi Gizle" : "Detaylı Filtre"}
-            onClick={onTogglePermFilters}
-            variant="secondary"
-            className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
-          />
-          {canManage && (
+      <PageToolbar
+        title={t("permissions.title")}
+        description={t("permissions.subtitle")}
+        actions={showActions ? (
+          <FilterActionsRow className="w-full lg:w-auto">
+            <SearchInput
+              value={permSearch}
+              onChange={onPermSearchChange}
+              placeholder={t("common.search")}
+              containerClassName="w-full lg:w-64"
+            />
             <Button
-              label="Yeni Yetki"
-              onClick={onCreatePermission}
-              variant="primarySoft"
+              label={showPermFilters ? t("common.hideFilter") : t("common.filter")}
+              onClick={onTogglePermFilters}
+              variant="secondary"
               className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
             />
-          )}
-        </div>
-      </div>
+            {canManage && (
+              <Button
+                label={t("permissions.new")}
+                onClick={onCreatePermission}
+                variant="primarySoft"
+                className="w-full px-2.5 py-2 lg:w-auto lg:px-3"
+              />
+            )}
+          </FilterActionsRow>
+        ) : null}
+      />
 
-      {showPermFilters && (
-        <div className="grid gap-3 rounded-xl2 border border-border bg-surface p-3 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-muted">Durum</label>
+      {showActions && showPermFilters && (
+        <AdvancedFiltersPanel className="md:grid-cols-2 lg:grid-cols-3">
+          <FilterField label={t("common.status")}>
             <SearchableDropdown
-              options={STATUS_FILTER_OPTIONS}
+              options={statusOptions}
               value={permStatusFilter === "all" ? "all" : String(permStatusFilter)}
               onChange={(value) => onPermStatusFilterChange(parseIsActiveFilter(value))}
-              placeholder="Tüm Durumlar"
+              placeholder={t("common.allStatuses")}
               showEmptyOption={false}
               allowClear={false}
-              inputAriaLabel="Yetki durum filtresi"
-              toggleAriaLabel="Yetki durum listesini aç"
+              inputAriaLabel={t("common.status")}
+              toggleAriaLabel={t("common.status")}
             />
-          </div>
+          </FilterField>
           <div className="md:col-span-2 lg:col-span-3">
             <Button
-              label="Filtreleri Temizle"
+              label={t("common.clearFilters")}
               onClick={onClearFilters}
               variant="secondary"
               className="w-full sm:w-auto"
             />
           </div>
-        </div>
+        </AdvancedFiltersPanel>
       )}
     </>
   );

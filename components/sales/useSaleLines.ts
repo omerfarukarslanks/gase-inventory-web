@@ -1,19 +1,20 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { toNumberOrNull } from "@/lib/format";
+import { useLang } from "@/context/LangContext";
+import { clearStringError } from "@/lib/form-errors";
 import type { Currency } from "@/lib/products";
 import {
   addSaleLine,
   getSaleById,
   removeSaleLine,
   updateSaleLine,
-  type AddSaleLinePayload,
-  type PatchSaleLinePayload,
   type SaleDetailLine,
   type SaleListItem,
 } from "@/lib/sales";
 import { normalizeSaleDetail } from "@/lib/sales-normalize";
+import { buildAddSaleLinePayload, buildPatchSaleLinePayload } from "@/components/sales/payload";
+import { validateAddSaleLineForm, validateManagedSaleLineForm } from "@/components/sales/validation";
 import {
   createLineRow,
   type ManagedLineEditForm,
@@ -40,59 +41,11 @@ function createEditLineForm(line: SaleDetailLine): ManagedLineEditForm {
   };
 }
 
-function buildPatchPayload(form: ManagedLineEditForm): PatchSaleLinePayload {
-  return {
-    quantity: Number(form.quantity),
-    unitPrice: Number(form.unitPrice),
-    currency: form.currency,
-    ...(form.discountMode === "percent" && form.discountPercent
-      ? { discountPercent: Number(form.discountPercent) }
-      : {}),
-    ...(form.discountMode === "amount" && form.discountAmount
-      ? { discountAmount: Number(form.discountAmount) }
-      : {}),
-    ...(form.taxMode === "percent" && form.taxPercent
-      ? { taxPercent: Number(form.taxPercent) }
-      : {}),
-    ...(form.taxMode === "amount" && form.taxAmount
-      ? { taxAmount: Number(form.taxAmount) }
-      : {}),
-    ...(form.campaignCode.trim() ? { campaignCode: form.campaignCode.trim() } : {}),
-  };
-}
-
-function buildAddPayload(
-  form: SaleLineForm,
-  isWholesaleStoreType: boolean,
-): AddSaleLinePayload {
-  const common = {
-    quantity: Number(form.quantity),
-    currency: form.currency,
-    unitPrice: Number(form.unitPrice),
-    ...(form.discountMode === "percent" && form.discountPercent
-      ? { discountPercent: Number(form.discountPercent) }
-      : {}),
-    ...(form.discountMode === "amount" && form.discountAmount
-      ? { discountAmount: Number(form.discountAmount) }
-      : {}),
-    ...(form.taxMode === "percent" && form.taxPercent
-      ? { taxPercent: Number(form.taxPercent) }
-      : {}),
-    ...(form.taxMode === "amount" && form.taxAmount
-      ? { taxAmount: Number(form.taxAmount) }
-      : {}),
-    ...(form.campaignCode.trim() ? { campaignCode: form.campaignCode.trim() } : {}),
-  };
-
-  return isWholesaleStoreType
-    ? { productPackageId: form.productVariantId, ...common }
-    : { productVariantId: form.productVariantId, ...common };
-}
-
 export function useSaleLines({
   isWholesaleStoreType,
   onRefreshSales,
 }: UseSaleLinesOptions) {
+  const { t } = useLang();
   const [linesDrawerOpen, setLinesDrawerOpen] = useState(false);
   const [linesDrawerSale, setLinesDrawerSale] = useState<SaleListItem | null>(null);
   const [managedLines, setManagedLines] = useState<SaleDetailLine[]>([]);
@@ -128,9 +81,9 @@ export function useSaleLines({
   const openManageLinesDrawer = useCallback(async (sale: SaleListItem) => {
     setLinesDrawerSale(sale);
     setManagedLines([]);
-    setLinesDrawerError("");
+    clearStringError(linesDrawerError, setLinesDrawerError);
     setEditingLineId(null);
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
     setDeleteLineDialogOpen(false);
     setDeleteLineTarget(null);
     setAddLineExpanded(false);
@@ -141,11 +94,11 @@ export function useSaleLines({
     try {
       await refreshManagedLines(sale.id);
     } catch {
-      setLinesDrawerError("Satirlar yuklenemedi.");
+      setLinesDrawerError(t("sales.linesDrawerLoadError"));
     } finally {
       setLinesDrawerLoading(false);
     }
-  }, [refreshManagedLines]);
+  }, [lineOpError, linesDrawerError, refreshManagedLines, t]);
 
   const closeManageLinesDrawer = useCallback(() => {
     if (lineOpSubmitting || deletingLine) return;
@@ -153,51 +106,49 @@ export function useSaleLines({
     setLinesDrawerSale(null);
     setManagedLines([]);
     setEditingLineId(null);
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
     setDeleteLineDialogOpen(false);
     setDeleteLineTarget(null);
     setAddLineExpanded(false);
-  }, [deletingLine, lineOpSubmitting]);
+  }, [deletingLine, lineOpError, lineOpSubmitting]);
 
   const startEditLine = useCallback((line: SaleDetailLine) => {
     setEditingLineId(line.id);
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
     setEditLineForm(createEditLineForm(line));
-  }, []);
+  }, [lineOpError]);
 
   const cancelEditLine = useCallback(() => {
     setEditingLineId(null);
-    setLineOpError("");
-  }, []);
+    clearStringError(lineOpError, setLineOpError);
+  }, [lineOpError]);
 
   const submitEditLine = useCallback(async (lineId: string) => {
     if (!linesDrawerSale) return;
 
-    const quantity = toNumberOrNull(editLineForm.quantity);
-    const unitPrice = toNumberOrNull(editLineForm.unitPrice);
-    if (quantity == null || quantity <= 0) {
-      setLineOpError("Gecerli bir adet girin.");
-      return;
-    }
-    if (unitPrice == null || unitPrice < 0) {
-      setLineOpError("Gecerli bir birim fiyat girin.");
+    const validationError = validateManagedSaleLineForm(editLineForm, {
+      quantityInvalid: t("sales.lineQuantityInvalid"),
+      unitPriceInvalid: t("sales.lineUnitPriceInvalid"),
+    });
+    if (validationError) {
+      setLineOpError(validationError);
       return;
     }
 
     setLineOpSubmitting(true);
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
 
     try {
-      await updateSaleLine(linesDrawerSale.id, lineId, buildPatchPayload(editLineForm));
+      await updateSaleLine(linesDrawerSale.id, lineId, buildPatchSaleLinePayload(editLineForm));
       setEditingLineId(null);
       await refreshManagedLines(linesDrawerSale.id);
       await onRefreshSales();
     } catch {
-      setLineOpError("Satir guncellenemedi.");
+      setLineOpError(t("sales.lineUpdateError"));
     } finally {
       setLineOpSubmitting(false);
     }
-  }, [editLineForm, linesDrawerSale, onRefreshSales, refreshManagedLines]);
+  }, [editLineForm, lineOpError, linesDrawerSale, onRefreshSales, refreshManagedLines, t]);
 
   const requestDeleteLine = useCallback((lineId: string) => {
     setDeleteLineTarget(lineId);
@@ -221,64 +172,61 @@ export function useSaleLines({
       await refreshManagedLines(linesDrawerSale.id);
       await onRefreshSales();
     } catch {
-      setLineOpError("Satir silinemedi.");
+      setLineOpError(t("sales.lineDeleteError"));
       setDeleteLineDialogOpen(false);
     } finally {
       setDeletingLine(false);
     }
-  }, [deleteLineTarget, linesDrawerSale, onRefreshSales, refreshManagedLines]);
+  }, [deleteLineTarget, linesDrawerSale, onRefreshSales, refreshManagedLines, t]);
 
   const toggleAddLineExpanded = useCallback(() => {
     setAddLineExpanded((prev) => !prev);
-    setLineOpError("");
-  }, []);
+    clearStringError(lineOpError, setLineOpError);
+  }, [lineOpError]);
 
   const handleEditLineFormChange = useCallback((patch: Partial<ManagedLineEditForm>) => {
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
     setEditLineForm((prev) => ({ ...prev, ...patch }));
-  }, []);
+  }, [lineOpError]);
 
   const handleAddLineFormChange = useCallback((patch: Partial<SaleLineForm>) => {
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
     setAddLineForm((prev) => ({ ...prev, ...patch }));
-  }, []);
+  }, [lineOpError]);
 
   const submitAddLine = useCallback(async () => {
     if (!linesDrawerSale) return;
 
-    const quantity = toNumberOrNull(addLineForm.quantity);
-    const unitPrice = toNumberOrNull(addLineForm.unitPrice);
-    if (!addLineForm.productVariantId) {
-      setLineOpError("Urun/varyant secin.");
-      return;
-    }
-    if (quantity == null || quantity <= 0) {
-      setLineOpError("Gecerli bir adet girin.");
-      return;
-    }
-    if (unitPrice == null || unitPrice < 0) {
-      setLineOpError("Gecerli bir birim fiyat girin.");
+    const validationError = validateAddSaleLineForm(addLineForm, {
+      itemRequired: isWholesaleStoreType
+        ? t("sales.packagePlaceholder")
+        : t("sales.variantPlaceholder"),
+      quantityInvalid: t("sales.lineQuantityInvalid"),
+      unitPriceInvalid: t("sales.lineUnitPriceInvalid"),
+    });
+    if (validationError) {
+      setLineOpError(validationError);
       return;
     }
 
     setLineOpSubmitting(true);
-    setLineOpError("");
+    clearStringError(lineOpError, setLineOpError);
 
     try {
       await addSaleLine(
         linesDrawerSale.id,
-        buildAddPayload(addLineForm, isWholesaleStoreType),
+        buildAddSaleLinePayload(addLineForm, isWholesaleStoreType),
       );
       setAddLineExpanded(false);
       setAddLineForm(createLineRow());
       await refreshManagedLines(linesDrawerSale.id);
       await onRefreshSales();
     } catch {
-      setLineOpError("Satir eklenemedi.");
+      setLineOpError(t("sales.lineAddError"));
     } finally {
       setLineOpSubmitting(false);
     }
-  }, [addLineForm, isWholesaleStoreType, linesDrawerSale, onRefreshSales, refreshManagedLines]);
+  }, [addLineForm, isWholesaleStoreType, lineOpError, linesDrawerSale, onRefreshSales, refreshManagedLines, t]);
 
   return {
     linesDrawerOpen,

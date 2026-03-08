@@ -6,24 +6,17 @@ import type { Supplier } from "@/lib/suppliers";
 import type { InventoryReceiveItem } from "@/lib/inventory";
 import type { StockEntryInitialEntry } from "@/components/inventory/StockEntryForm";
 import Drawer from "@/components/ui/Drawer";
+import FormField from "@/components/ui/FormField";
 import SearchableDropdown from "@/components/ui/SearchableDropdown";
 import StockEntryForm from "@/components/inventory/StockEntryForm";
 import { cn } from "@/lib/cn";
+import { useLang } from "@/context/LangContext";
 
 export type ReceiveTarget = {
   productVariantId?: string;
   productName: string;
   variantName?: string;
 };
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="mb-1 block text-xs font-semibold text-muted">{label}</label>
-      {children}
-    </div>
-  );
-}
 
 type ReceiveDrawerProps = {
   open: boolean;
@@ -64,9 +57,11 @@ export default function ReceiveDrawer({
   onClose,
   onSubmit,
 }: ReceiveDrawerProps) {
-  const supplierOptions = suppliers.map((s) => ({
-    value: s.id,
-    label: s.surname ? `${s.name} ${s.surname}` : s.name,
+  const { t } = useLang();
+
+  const supplierOptions = suppliers.map((supplier) => ({
+    value: supplier.id,
+    label: supplier.surname ? `${supplier.name} ${supplier.surname}` : supplier.name,
   }));
 
   const handleSubmit = async (items: InventoryReceiveItem[]) => {
@@ -81,25 +76,25 @@ export default function ReceiveDrawer({
       open={open}
       onClose={onClose}
       side="right"
-      title="Stok Girisi"
+      title={t("stock.receive")}
       description={target ? `${target.productName}${target.variantName ? ` / ${target.variantName}` : ""}` : ""}
       closeDisabled={submitting}
       className={cn(isMobile ? "!max-w-none" : "!max-w-[600px]")}
     >
       <div className="space-y-3 p-5">
         {loading ? (
-          <p className="text-sm text-muted">Bilgiler yukleniyor...</p>
+          <p className="text-sm text-muted">{t("stock.loadingReceive")}</p>
         ) : (
           <>
-            <Field label="Tedarikci">
+            <FormField label={t("stock.supplier")}>
               <SearchableDropdown
                 options={supplierOptions}
                 value={supplierId}
                 onChange={onSupplierChange}
-                placeholder="Tedarikci secin (isteğe baglı)"
+                placeholder={t("stock.supplierPlaceholder")}
                 showEmptyOption
               />
-            </Field>
+            </FormField>
 
             <StockEntryForm
               variants={variants}
